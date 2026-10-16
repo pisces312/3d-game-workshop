@@ -1,0 +1,12 @@
+{
+  "FR-01": ["index.html", "game.js"],
+  "FR-02": ["game.js"],
+  "FR-03": ["index.html", "game.js"],
+  "FR-04": ["game.js"],
+  "FR-05": ["game.js"],
+  "FR-06": ["index.html", "game.js"],
+  "FR-07": ["index.html", "game.js"],
+  "NFR-01": ["styles.css", "game.js"],
+  "NFR-02": ["README.md", "index.html"],
+  "NFR-03": ["index.html", "styles.css", "game.js"]
+}

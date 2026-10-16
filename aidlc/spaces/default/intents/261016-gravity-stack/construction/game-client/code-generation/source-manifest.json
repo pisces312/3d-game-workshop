@@ -1,0 +1,6 @@
+{
+  "unit": "game-client",
+  "files": ["index.html", "styles.css", "game.js", "README.md"],
+  "generatedAgainstBranch": "gravity-stack",
+  "sourceStatus": "present"
+}

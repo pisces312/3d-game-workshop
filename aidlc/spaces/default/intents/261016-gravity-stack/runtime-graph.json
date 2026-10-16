@@ -1,0 +1,24 @@
+{
+  "intentId": "261016-gravity-stack",
+  "units": [
+    {
+      "id": "game-client",
+      "kind": "ui",
+      "dependsOn": [],
+      "sourcePaths": ["index.html", "styles.css", "game.js"]
+    }
+  ],
+  "externalDependencies": [
+    {
+      "name": "three",
+      "version": "0.166.1",
+      "delivery": "jsdelivr CDN",
+      "runtimeRequired": true
+    },
+    {
+      "name": "google-fonts",
+      "delivery": "Google Fonts CSS CDN",
+      "runtimeRequired": false
+    }
+  ]
+}

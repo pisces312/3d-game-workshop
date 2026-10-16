@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#10172b" />
+    <title>重力叠叠乐 · Gravity Stack</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="game-shell" aria-label="重力叠叠乐 3D 游戏">
+      <div id="scene" class="scene" aria-label="3D 游戏场景"></div>
+
+      <header class="hud">
+        <div class="brand">
+          <span class="brand-mark">✦</span>
+          <div>
+            <p class="eyebrow">GRAVITY STACK</p>
+            <h1>重力叠叠乐</h1>
+          </div>
+        </div>
+        <div class="score-card">
+          <span>层数</span>
+          <strong id="score">0</strong>
+        </div>
+        <div class="score-card score-card-muted">
+          <span>最高</span>
+          <strong id="best">0</strong>
+        </div>
+      </header>
+
+      <section class="status-bar" aria-live="polite">
+        <span class="status-dot"></span>
+        <span id="status-text">点击开始，让第一块积木落下</span>
+      </section>
+
+      <div class="crosshair" aria-hidden="true"></div>
+
+      <section id="start-panel" class="modal-panel">
+        <div class="panel-glow"></div>
+        <p class="eyebrow">A 3D BALANCE CHALLENGE</p>
+        <h2>把天空<br /><em>叠到更高</em></h2>
+        <p class="panel-copy">方块会在空中往返移动。找准时机点击，让它落在上一层上，偏差越小，塔就越稳。</p>
+        <button id="start-button" class="primary-button" type="button">
+          <span>开始挑战</span>
+          <span class="button-arrow">→</span>
+        </button>
+        <p class="hint">点击 / 触摸屏幕 / 空格键放下方块</p>
+      </section>
+
+      <section id="game-over-panel" class="modal-panel is-hidden">
+        <div class="panel-glow panel-glow-danger"></div>
+        <p class="eyebrow">THE TOWER FELL</p>
+        <h2>差一点，<br /><em>再来一局</em></h2>
+        <div class="result-row">
+          <div><span>本局层数</span><strong id="final-score">0</strong></div>
+          <div><span>最高纪录</span><strong id="final-best">0</strong></div>
+        </div>
+        <button id="restart-button" class="primary-button" type="button">
+          <span>重新挑战</span>
+          <span class="button-arrow">↻</span>
+        </button>
+        <p class="hint">保持节奏，别让重力打乱你的平衡</p>
+      </section>
+
+      <footer class="footer-hint">
+        <span class="key-hint"><kbd>SPACE</kbd> 放下</span>
+        <span class="footer-separator">·</span>
+        <span>让每一层都更精准</span>
+      </footer>
+    </main>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.166.1/build/three.module.js"
+        }
+      }
+    </script>
+    <script type="module" src="./game.js"></script>
+  </body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "intentId": "261016-gravity-stack",
+  "title": "重力叠叠乐 3D 网页游戏",
+  "description": "Build a browser-playable 3D stacking game in which an airborne block moves back and forth and falls when the player acts.",
+  "source": "user-chat",
+  "profile": "mvp",
+  "depth": "standard",
+  "testStrategy": "standard",
+  "branch": "gravity-stack",
+  "recordedAt": "2026-10-16",
+  "implementationStatus": "implemented",
+  "nativeEngineRun": false
+}
