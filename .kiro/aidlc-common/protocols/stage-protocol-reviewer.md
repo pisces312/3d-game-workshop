@@ -463,7 +463,7 @@ Write and edit files yourself with your file tools, never through the shell (no 
 
 Use only the subsection that matches the active harness.
 
-### Kiro CLI
+### Kiro IDE
 
 If `directive.reviewer` is present, invoke the reviewer as a sub-agent (via the `subagent` tool targeting the reviewer agent config).
 

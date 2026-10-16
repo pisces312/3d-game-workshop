@@ -23,4 +23,5 @@ aidlc/spaces/*/knowledge/.sources.local.json
 aidlc/spaces/*/intents/*/runtime-graph.json
 aidlc/spaces/*/intents/*/.aidlc-*
 aidlc/diagnostics/
+.kiro/steering/aidlc-active-memory.md
 # END AI-DLC:gitignore

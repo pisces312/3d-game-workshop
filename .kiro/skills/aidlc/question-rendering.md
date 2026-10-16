@@ -1,4 +1,4 @@
-# Question Rendering — Kiro CLI harness annex
+# Question Rendering — Kiro IDE harness annex
 
 This file defines how THIS harness renders the structured questions that
 `.kiro/aidlc-common/protocols/stage-protocol.md` section "Structured questions" requires.
@@ -47,7 +47,7 @@ prohibition is about echoing raw fences in live orchestration turns.)
 
 ## Mechanism
 
-Kiro CLI has no structured-question tool, so every structured question renders
+Kiro IDE has no structured-question tool, so every structured question renders
 as **numbered prose options in chat**, and the user answers with a number (or
 free text). Render the spec like this:
 
@@ -116,7 +116,7 @@ query, inspect intent state, add a recommendation, or replace it with a newly
 derived question before rendering. Typed asks other than `new-work-routing`
 use `directive.question`; that subtype uses the engine-authored numbered field
 below. This prose-only
-path is the compatibility contract for older and newer Kiro CLI versions.
+path is the compatibility contract for older and newer Kiro IDE versions.
 
 Every engine-ask render is invalid until its final displayed option is the next
 number followed by `**Other** — describe what you want instead`. A trailing
