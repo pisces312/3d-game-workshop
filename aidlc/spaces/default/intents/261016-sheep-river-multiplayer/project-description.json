@@ -1,0 +1,16 @@
+{
+  "intentId": "261016-sheep-river-multiplayer",
+  "title": "小羊过河多人合作版",
+  "summary": "一个由 Node.js 提供房间服务、由 Three.js 渲染的浏览器 3D 实时合作过河游戏。",
+  "profile": "MVP",
+  "depth": "standard",
+  "runtime": {
+    "server": "Node.js >=18",
+    "client": "modern WebGL browser",
+    "transport": "HTTP + WebSocket",
+    "externalAsset": "Three.js r128 via cdnjs"
+  },
+  "sourceFiles": ["server.js", "sheep-river-3d_4.html", "package.json"],
+  "constraints": ["single Node.js instance", "in-memory rooms", "maximum 8 players", "no authentication", "no authoritative anti-cheat"],
+  "status": "reconstructed-from-existing-implementation"
+}

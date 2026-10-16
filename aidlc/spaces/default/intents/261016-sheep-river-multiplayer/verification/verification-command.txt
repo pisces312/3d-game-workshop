@@ -1,0 +1,20 @@
+# Verification Command Record — 2026-10-16
+
+PASS  node --check server.js
+PASS  git diff --check
+PASS  PORT=8080 npm start
+PASS  curl --fail --silent --show-error --output /dev/null http://localhost:8080/
+
+NOTE  npm start on default port 3000 could not bind because a local process already occupied the port.
+NOTE  Full acceptance remains pending: execute V-01..V-09 from requirements.md with two isolated browser sessions.
+
+Manual verification checklist:
+- V-01 Create a room; verify room code and host display.
+- V-02 Join from a second session; verify roster and invalid-code error.
+- V-03 Verify only host starts; close host session and verify host transfer.
+- V-04 Start and compare the two generated river layouts.
+- V-05 Move both sheep; verify remote interpolation and labels.
+- V-06 Complete/fail a level; verify HUD, lives, timer and score.
+- V-07 Complete all players; verify rank then next level/final completion.
+- V-08 Verify keyboard, button and touch controls.
+- V-09 Start with a custom PORT and verify HTTP plus WebSocket connectivity.

@@ -1,0 +1,1359 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
+<title>小羊过河</title>
+<style>
+  :root {
+    --glass: rgba(14, 18, 22, .42);
+    --line: rgba(255, 255, 255, .14);
+    --text: #f2eee6;
+    --muted: rgba(242, 238, 230, .62);
+    --accent: #d8b27a;
+    --serif: "Songti SC", "STSong", "Noto Serif CJK SC", "Source Han Serif SC", "SimSun", serif;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden; background: #1a1f24; color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+    -webkit-user-select: none; user-select: none; touch-action: none; -webkit-tap-highlight-color: transparent;
+  }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  .vignette {
+    position: fixed; inset: 0; pointer-events: none; z-index: 1;
+    background: radial-gradient(ellipse at 50% 55%, transparent 55%, rgba(0,0,0,.38) 100%);
+  }
+
+  /* ---------- 顶部信息 ---------- */
+  #hud {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 2; pointer-events: none;
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;
+    padding: calc(env(safe-area-inset-top) + 14px) calc(env(safe-area-inset-right) + 14px) 0 calc(env(safe-area-inset-left) + 14px);
+  }
+  .panel {
+    background: var(--glass); border: 1px solid var(--line); border-radius: 14px; padding: 10px 14px;
+    backdrop-filter: blur(14px) saturate(1.2); -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  }
+  .eyebrow { font-size: 10.5px; letter-spacing: .18em; color: var(--muted); text-transform: uppercase; font-weight: 600; }
+  #lvName { font-family: var(--serif); font-size: 17px; margin-top: 3px; letter-spacing: .06em; white-space: nowrap; }
+  .timer { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+  .bar { width: 120px; height: 3px; background: rgba(255,255,255,.15); border-radius: 2px; overflow: hidden; }
+  #timeFill { height: 100%; width: 100%; background: var(--accent); transition: width .25s linear, background .3s; }
+  #timeFill.low { background: #e07a5f; }
+  #timeNum { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 26px; }
+  .right { display: flex; align-items: center; gap: 16px; }
+  .num { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.1; margin-top: 2px; }
+  .lives { display: flex; gap: 5px; margin-top: 8px; }
+  .lives i { width: 8px; height: 8px; border-radius: 50%; background: var(--text); }
+  .lives i.off { background: transparent; border: 1px solid rgba(255,255,255,.35); }
+  .iconBtn {
+    pointer-events: auto; width: 34px; height: 34px; border-radius: 50%; cursor: pointer; padding: 0;
+    border: 1px solid var(--line); background: rgba(255,255,255,.06); color: var(--text);
+    display: grid; place-items: center; transition: background .2s;
+  }
+  .iconBtn:hover { background: rgba(255,255,255,.16); }
+  .iconBtn svg { width: 16px; height: 16px; }
+  .btns { display: flex; gap: 6px; }
+
+  /* ---------- 键位提示（电脑） ---------- */
+  #hint {
+    position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 18px); transform: translateX(-50%); z-index: 2;
+    font-size: 12px; color: var(--muted); letter-spacing: .06em; white-space: nowrap; pointer-events: none;
+    background: var(--glass); border: 1px solid var(--line); border-radius: 999px; padding: 8px 16px;
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); transition: opacity .6s;
+  }
+  kbd {
+    display: inline-block; min-width: 22px; padding: 2px 6px; margin: 0 2px; text-align: center;
+    border: 1px solid rgba(255,255,255,.3); border-bottom-width: 2px; border-radius: 5px;
+    font-family: inherit; font-size: 11px; color: var(--text);
+  }
+
+  /* ---------- 手机操作 ---------- */
+  #touch { display: none; }
+  @media (pointer: coarse) { #touch { display: block; } #hint { display: none; } }
+  #dpad { position: fixed; z-index: 3; left: calc(env(safe-area-inset-left) + 16px); bottom: calc(env(safe-area-inset-bottom) + 16px); width: 156px; height: 156px; }
+  #dpad button {
+    position: absolute; width: 52px; height: 52px; border-radius: 50%; padding: 0; touch-action: none;
+    background: var(--glass); border: 1px solid var(--line); color: var(--text); display: grid; place-items: center;
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); transition: background .15s, border-color .15s;
+  }
+  #dpad button.on { border-color: var(--accent); color: var(--accent); }
+  #dpad button:active { background: rgba(255,255,255,.2); }
+  #dpad svg { width: 18px; height: 18px; }
+  #tUp { left: 52px; top: 0; } #tLeft { left: 0; top: 52px; } #tRight { left: 104px; top: 52px; } #tDown { left: 52px; top: 104px; }
+  #jumpBtn {
+    position: fixed; z-index: 3; right: calc(env(safe-area-inset-right) + 20px); bottom: calc(env(safe-area-inset-bottom) + 34px);
+    width: 88px; height: 88px; border-radius: 50%; border: none; touch-action: none;
+    background: rgba(216,178,122,.9); color: #1b1712; font-size: 15px; font-weight: 600; letter-spacing: .2em; text-indent: .2em;
+    box-shadow: 0 8px 24px rgba(0,0,0,.3);
+  }
+  #jumpBtn:active { transform: scale(.94); background: #e6c391; }
+
+  /* ---------- 提示文字 ---------- */
+  #toast {
+    position: fixed; top: 34%; left: 50%; transform: translate(-50%,-50%); z-index: 4; pointer-events: none; text-align: center;
+    font-family: var(--serif); font-size: 28px; letter-spacing: .18em; white-space: nowrap;
+    text-shadow: 0 2px 18px rgba(0,0,0,.55); opacity: 0; transition: opacity .4s;
+  }
+  #toast small { display: block; font-size: 11px; letter-spacing: .3em; color: var(--muted); margin-bottom: 8px; font-family: -apple-system, "PingFang SC", sans-serif; text-transform: uppercase; }
+  #toast.show { opacity: 1; }
+
+  /* ---------- 弹窗 ---------- */
+  #overlay {
+    position: fixed; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center; padding: 24px;
+    background: radial-gradient(ellipse at center, rgba(10,14,18,.3), rgba(10,14,18,.78));
+    backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); transition: opacity .4s;
+  }
+  #overlay.hidden { opacity: 0; pointer-events: none; }
+  .sheet { max-width: 440px; width: 100%; text-align: center; max-height: 100%; overflow: auto; }
+  .sheet h1 { font-family: var(--serif); font-weight: 600; font-size: 46px; letter-spacing: .16em; text-indent: .16em; margin: 10px 0 4px; }
+  .divider { width: 36px; height: 1px; background: var(--accent); margin: 16px auto; }
+  .sub { color: var(--muted); font-size: 14px; line-height: 1.9; margin: 0; }
+  .keys { display: flex; justify-content: center; gap: 22px; margin-top: 22px; flex-wrap: wrap; color: var(--muted); font-size: 12px; letter-spacing: .05em; }
+  .stats { margin: 22px auto 0; max-width: 270px; border-top: 1px solid var(--line); }
+  .stats div { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 14px; color: var(--muted); }
+  .stats b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .stats .total b { color: var(--accent); font-size: 18px; }
+  .primary {
+    margin-top: 28px; background: var(--accent); color: #1b1712; border: none; border-radius: 999px; cursor: pointer;
+    padding: 13px 46px; font-size: 15px; font-weight: 600; letter-spacing: .3em; text-indent: .3em; transition: background .2s, transform .15s;
+  }
+  .primary:hover { background: #e6c391; }
+  .primary:active { transform: scale(.97); }
+  .touchOnly { display: none; } .deskOnly { display: inline; }
+  @media (pointer: coarse) { .touchOnly { display: inline; } .deskOnly { display: none; } }
+
+  /* ---------- 多人房间 ---------- */
+  .roomForm { margin: 22px auto 0; max-width: 330px; text-align: left; }
+  .roomForm label { display: block; margin: 13px 0 6px; color: var(--muted); font-size: 12px; letter-spacing: .08em; }
+  .roomForm input { width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 11px 12px; color: var(--text); background: rgba(0,0,0,.2); font: inherit; outline: none; }
+  .roomForm input:focus { border-color: var(--accent); }
+  .roomActions { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-top: 18px; }
+  .roomActions button, .roomStart { margin-top: 0; width: 100%; padding: 12px 8px; letter-spacing: .12em; text-indent: .12em; }
+  .roomSecondary { background: rgba(255,255,255,.1); color: var(--text); border: 1px solid var(--line); }
+  .roomCode { color: var(--accent); font-size: 25px; font-weight: 700; letter-spacing: .14em; margin: 6px 0 16px; }
+  .roomHint, .roomError { min-height: 20px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+  .roomError { color: #efab94; }
+  .playerList { margin: 16px auto 0; max-width: 330px; text-align: left; border-top: 1px solid var(--line); }
+  .playerRow { display: flex; align-items: center; justify-content: space-between; padding: 9px 3px; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .playerDot { width: 9px; height: 9px; margin-right: 9px; border-radius: 50%; display: inline-block; }
+  .playerName { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .playerStatus { color: var(--muted); font-size: 11px; }
+  #leaderboard { position: fixed; z-index: 3; top: calc(env(safe-area-inset-top) + 112px); right: calc(env(safe-area-inset-right) + 14px); width: 185px; padding: 11px 12px; background: var(--glass); border: 1px solid var(--line); border-radius: 14px; backdrop-filter: blur(14px) saturate(1.2); -webkit-backdrop-filter: blur(14px) saturate(1.2); opacity: 0; transform: translateX(12px); pointer-events: none; transition: opacity .25s, transform .25s; }
+  #leaderboard.show { opacity: 1; transform: translateX(0); }
+  .rankTitle { color: var(--muted); font-size: 10.5px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; }
+  .rankRow { display: flex; align-items: center; gap: 7px; min-height: 29px; border-top: 1px solid rgba(255,255,255,.09); font-size: 12px; }
+  .rankRow:first-of-type { margin-top: 8px; }
+  .rankNum { width: 18px; font-weight: 700; color: var(--accent); text-align: center; }
+  .rankWaiting { color: var(--muted); font-weight: 500; }
+  .rankName { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  @media (max-width: 480px) {
+    #leaderboard { top: calc(env(safe-area-inset-top) + 97px); width: 154px; padding: 8px 9px; }
+    .rankRow { min-height: 26px; font-size: 11px; }
+    .bar { width: 70px; } #lvName { font-size: 15px; }
+    .right { gap: 10px; } .panel { padding: 8px 10px; } .iconBtn { width: 30px; height: 30px; }
+    .num { font-size: 19px; } .sheet h1 { font-size: 38px; }
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="vignette"></div>
+
+<header id="hud">
+  <div class="panel">
+    <div class="eyebrow">Level <span id="lvNum">01</span> / <span id="lvTotal">03</span></div>
+    <div id="lvName">晨雾 · 小溪</div>
+    <div class="timer"><div class="bar"><div id="timeFill"></div></div><span id="timeNum">60</span></div>
+  </div>
+  <div class="panel right">
+    <div><div class="eyebrow" id="roomLabel">Score</div><div class="num" id="score">0</div></div>
+    <div><div class="eyebrow">Lives</div><div class="lives" id="lives"></div></div>
+    <div class="btns">
+      <button class="iconBtn" id="soundBtn" aria-label="声音">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path id="soundWave" d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+      </button>
+      <button class="iconBtn" id="restartBtn" aria-label="重玩">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<aside id="leaderboard" aria-label="本关到达排行榜"><div class="rankTitle">本关到达排行</div><div id="rankList"></div></aside>
+
+<div id="hint"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 转向 &nbsp;·&nbsp; <kbd>Space</kbd> 跳跃</div>
+
+<div id="touch">
+  <div id="dpad">
+    <button id="tUp" data-dir="fwd"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6"/></svg></button>
+    <button id="tLeft" data-dir="left"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 6-6 6 6 6"/></svg></button>
+    <button id="tRight" data-dir="right"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></button>
+    <button id="tDown" data-dir="back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
+  </div>
+  <button id="jumpBtn">跳</button>
+</div>
+
+<div id="toast"></div>
+<div id="overlay"><div class="sheet" id="sheet"></div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* =====================================================================
+ *  配置区：改这里就能调整关卡和数值，不需要改下面的代码
+ * ===================================================================== */
+const CONFIG = {
+  lives: 3,              // 初始生命
+  riverWidth: 9,         // 河面可活动的列数
+  jumpTime: 0.22,        // 跳一格用时（秒）
+  inputCooldown: 0.12,   // 落地后多久才能再跳（秒），越大越不灵敏
+  landTolerance: 0.12,   // 落在木筏边缘的宽容度
+  scorePerRow: 10,       // 每前进一排得分
+  levelBonus: 200,       // 过关奖励
+  timeBonusPerSec: 5,    // 剩余每秒奖励
+  levels: [
+    // lanes: 河道数  speed: 木筏速度范围  plankLength: 木筏长度范围  gap: 木筏间距范围
+    // timeLimit: 限时（秒）  timeOfDay: 光照时段 morning / noon / dusk  safeLanes: 可休息的沙洲（可选）
+    { name: "晨雾 · 小溪", timeOfDay: "morning", lanes: 4, speed: [0.7, 1.2], plankLength: [3, 4],     gap: [1.2, 2.2], timeLimit: 60 },
+    { name: "午后 · 河湾", timeOfDay: "noon",    lanes: 6, speed: [1.1, 1.8], plankLength: [2.4, 3.4], gap: [1.8, 2.8], timeLimit: 60 },
+    { name: "黄昏 · 急流", timeOfDay: "dusk",    lanes: 8, speed: [1.5, 2.4], plankLength: [2.0, 2.8], gap: [2.2, 3.2], timeLimit: 75, safeLanes: [4] }
+  ],
+  // 三种时段的光照和配色
+  atmosphere: {
+    morning: { skyTop: 0x86a9cf, horizon: 0xdcd6c8, sun: 0xffe2bd, sunIntensity: 2.4, sunDir: [-0.45, 0.42, -0.78],
+               hemiSky: 0xcfdcea, hemiGround: 0x4a5238, hemiIntensity: 0.85, waterDeep: 0x123a40, waterShallow: 0x3a6f64, exposure: 0.95 },
+    noon:    { skyTop: 0x5a8fcb, horizon: 0xc6d7e2, sun: 0xfff2dc, sunIntensity: 2.8, sunDir: [0.35, 0.75, -0.55],
+               hemiSky: 0xd2e3f3, hemiGround: 0x4f5c3a, hemiIntensity: 0.9, waterDeep: 0x0f3d4a, waterShallow: 0x2c7472, exposure: 0.88 },
+    dusk:    { skyTop: 0x34436a, horizon: 0xe39a68, sun: 0xffa45c, sunIntensity: 2.6, sunDir: [0.5, 0.2, -0.84],
+               hemiSky: 0x8f8db0, hemiGround: 0x46362c, hemiIntensity: 0.7, waterDeep: 0x162a38, waterShallow: 0x4b5658, exposure: 1.0 }
+  }
+};
+
+const MULTIPLAYER = {
+  maxNameLength: 16,
+  defaultRoomCode: '',
+  colors: ['#d8b27a', '#94c6df', '#d99292', '#a8cb8c', '#cab0e4', '#e8c879', '#87c7bd', '#e0a0c1']
+};
+
+/* =====================================================================
+ *  以下为游戏代码
+ * ===================================================================== */
+const $ = id => document.getElementById(id);
+const rand = (a, b) => a + Math.random() * (b - a);
+const pick = v => Array.isArray(v) ? rand(v[0], v[1]) : v;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const wrap = (v, P) => ((v + P / 2) % P + P) % P - P / 2;
+const deg = d => d * Math.PI / 180;
+const SIDE = 12;            // 屏幕两侧额外的河面长度，木筏在这里"绕回来"
+const WATER_Y = -0.18;      // 水面高度
+let currentLevelSeed = null;
+function seededRandom(seed) {
+  let value = (Number(seed) || 1) >>> 0;
+  return () => {
+    value += 0x6D2B79F5;
+    let t = value;
+    t = Math.imul(t ^ t >>> 15, t | 1);
+    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function withLevelSeed(seed, work) {
+  if (seed === null || seed === undefined) return work();
+  const originalRandom = Math.random;
+  Math.random = seededRandom(seed);
+  try { return work(); } finally { Math.random = originalRandom; }
+}
+
+/* ---------- 声音（全部用代码合成，不需要音频文件） ---------- */
+let actx = null, master = null, riverGain = null, muted = false;
+function audio() {
+  if (!actx) {
+    try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; }
+    master = actx.createGain(); master.gain.value = muted ? 0 : 1; master.connect(actx.destination);
+  }
+  if (actx.state === 'suspended') actx.resume();
+  return actx;
+}
+function noiseBuffer(sec, brown) {
+  const ctx = audio(), n = Math.floor(ctx.sampleRate * sec), buf = ctx.createBuffer(1, n, ctx.sampleRate), d = buf.getChannelData(0);
+  let last = 0;
+  for (let i = 0; i < n; i++) {
+    const w = Math.random() * 2 - 1;
+    if (brown) { last = (last + 0.02 * w) / 1.02; d[i] = last * 3.5; } else d[i] = w;
+  }
+  return buf;
+}
+function noiseHit(dur, type, freq, vol, q = 0.8) {
+  const ctx = audio(); if (!ctx) return;
+  const src = ctx.createBufferSource(); src.buffer = noiseBuffer(dur, false);
+  const f = ctx.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q;
+  const g = ctx.createGain(), t = ctx.currentTime;
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  src.connect(f); f.connect(g); g.connect(master); src.start();
+}
+function tone(freq, dur, type = 'sine', vol = 0.08, slide = 0, delay = 0) {
+  const ctx = audio(); if (!ctx) return;
+  const o = ctx.createOscillator(), g = ctx.createGain(), t = ctx.currentTime + delay;
+  o.type = type; o.frequency.setValueAtTime(freq, t);
+  if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(40, freq + slide), t + dur);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + 0.05);
+}
+const sfx = {
+  river() {
+    const ctx = audio(); if (!ctx || riverGain) return;
+    const src = ctx.createBufferSource(); src.buffer = noiseBuffer(4, true); src.loop = true;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 650;
+    riverGain = ctx.createGain(); riverGain.gain.value = 0.05;
+    src.connect(lp); lp.connect(riverGain); riverGain.connect(master); src.start();
+  },
+  turn()   { tone(880, 0.04, 'sine', 0.015); },
+  jump()   { tone(300, 0.16, 'sine', 0.05, 160); },
+  wood()   { noiseHit(0.12, 'lowpass', 380, 0.22); tone(105, 0.12, 'sine', 0.06, -20); },
+  grass()  { noiseHit(0.08, 'bandpass', 2200, 0.05, 0.6); },
+  splash() { noiseHit(0.6, 'bandpass', 1100, 0.32, 0.5); noiseHit(0.25, 'lowpass', 300, 0.25); },
+  chime()  { [659, 784, 988, 1319].forEach((f, i) => tone(f, 1.2, 'sine', 0.05, 0, i * 0.12)); },
+  fail()   { [392, 330, 262].forEach((f, i) => tone(f, 0.7, 'sine', 0.05, 0, i * 0.18)); },
+  click()  { tone(660, 0.06, 'sine', 0.04); }
+};
+
+/* ---------- 渲染器与场景 ---------- */
+const canvas = $('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const lin = hex => new THREE.Color(hex).convertSRGBToLinear();   // 把常见的颜色值转成线性空间
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0xcccccc, 20, 70);
+const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 400);
+
+const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 0.8);
+scene.add(hemi);
+const sunLight = new THREE.DirectionalLight(0xffffff, 2.5);
+sunLight.castShadow = true;
+sunLight.shadow.mapSize.set(2048, 2048);
+sunLight.shadow.bias = -0.0004;
+sunLight.shadow.normalBias = 0.02;
+Object.assign(sunLight.shadow.camera, { left: -15, right: 15, top: 15, bottom: -15, near: 1, far: 80 });
+scene.add(sunLight, sunLight.target);
+const sunDir = new THREE.Vector3();
+
+/* ---------- 天空（渐变 + 太阳光晕） ---------- */
+const sky = new THREE.Mesh(
+  new THREE.SphereGeometry(180, 32, 16),
+  new THREE.ShaderMaterial({
+    side: THREE.BackSide, depthWrite: false, fog: false,
+    uniforms: { topColor: { value: new THREE.Color() }, horizonColor: { value: new THREE.Color() }, sunColor: { value: new THREE.Color() }, sunDir: { value: sunDir } },
+    vertexShader: `varying vec3 vDir; void main(){ vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `
+      uniform vec3 topColor, horizonColor, sunColor, sunDir; varying vec3 vDir;
+      void main(){
+        vec3 d = normalize(vDir);
+        vec3 col = mix(horizonColor, topColor, pow(clamp(d.y, 0.0, 1.0), 0.55));
+        col = mix(col, horizonColor * 0.85, smoothstep(0.0, -0.2, d.y));
+        float s = max(dot(d, normalize(sunDir)), 0.0);
+        col += sunColor * (pow(s, 900.0) * 8.0 + pow(s, 14.0) * 0.35);
+        gl_FragColor = vec4(col, 1.0);
+        #include <tonemapping_fragment>
+        #include <encodings_fragment>
+      }`
+  })
+);
+sky.renderOrder = -1;
+scene.add(sky);
+
+/* ---------- 河水（自定义着色器：分道流动的波纹、菲涅尔反射、太阳高光、岸边泡沫） ---------- */
+const waterMat = new THREE.ShaderMaterial({
+  fog: true,
+  uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, {
+    uTime: { value: 0 }, uSunDir: { value: new THREE.Vector3() }, uSunColor: { value: new THREE.Color() },
+    uDeep: { value: new THREE.Color() }, uShallow: { value: new THREE.Color() },
+    uSkyTop: { value: new THREE.Color() }, uSkyHorizon: { value: new THREE.Color() },
+    uLaneSpeed: { value: new Array(16).fill(0) }, uBankNear: { value: -0.5 }, uBankFar: { value: -5.5 }, uPlayHalf: { value: 5 }
+  }]),
+  vertexShader: `
+    uniform float uTime; varying vec3 vWorld;
+    #include <fog_pars_vertex>
+    void main(){
+      vec4 wp = modelMatrix * vec4(position, 1.0);
+      wp.y += sin(wp.x * 0.9 + uTime * 1.3) * 0.012 + sin(wp.z * 2.1 - uTime * 1.1) * 0.01;
+      vWorld = wp.xyz;
+      vec4 mvPosition = viewMatrix * wp;
+      gl_Position = projectionMatrix * mvPosition;
+      #include <fog_vertex>
+    }`,
+  fragmentShader: `
+    uniform float uTime, uBankNear, uBankFar, uPlayHalf;
+    uniform float uLaneSpeed[16];
+    uniform vec3 uSunDir, uSunColor, uDeep, uShallow, uSkyTop, uSkyHorizon;
+    varying vec3 vWorld;
+    #include <fog_pars_fragment>
+    float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+    float noise(vec2 p){
+      vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f);
+      return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
+    }
+    float waves(vec2 p){
+      return noise(p * vec2(1.1, 2.6)) * 0.5 + noise(p * vec2(2.6, 4.4) + 3.1) * 0.3 + noise(p * vec2(6.5, 9.0) + 7.7) * 0.15;
+    }
+    void main(){
+      int lane = int(floor(-vWorld.z + 0.5));
+      float spd = 0.0;
+      for (int i = 0; i < 16; i++) { if (i == lane) spd = uLaneSpeed[i]; }
+      vec2 p = vec2(vWorld.x - spd * uTime * 0.9, vWorld.z + uTime * 0.04);
+      float e = 0.04;
+      float h0 = waves(p), hx = waves(p + vec2(e, 0.0)), hz = waves(p + vec2(0.0, e));
+      vec3 n = normalize(vec3(-(hx - h0) / e * 0.06, 1.0, -(hz - h0) / e * 0.06));
+      vec3 V = normalize(cameraPosition - vWorld);
+      float fres = 0.03 + 0.97 * pow(1.0 - max(dot(n, V), 0.0), 5.0);
+      vec3 R = reflect(-V, n);
+      vec3 skyCol = mix(uSkyHorizon, uSkyTop, clamp(R.y * 1.4, 0.0, 1.0));
+      vec3 base = mix(uDeep, uShallow, h0 * 0.7);
+      float dShore = min(abs(vWorld.z - uBankNear), abs(vWorld.z - uBankFar));
+      base = mix(base, uShallow * 1.25, (1.0 - smoothstep(0.0, 1.2, dShore)) * 0.55);
+      vec3 col = mix(base, skyCol, clamp(fres * 1.6, 0.0, 0.85));
+      float spec = pow(max(dot(R, normalize(uSunDir)), 0.0), 300.0);
+      col += uSunColor * spec * 1.1;
+      float foam = smoothstep(0.28, 0.0, dShore) * smoothstep(0.42, 0.7, noise(p * 7.0 + uTime * 0.6));
+      col = mix(col, vec3(0.82, 0.84, 0.82), foam * 0.65);
+      col *= 1.0 - smoothstep(uPlayHalf, uPlayHalf + 4.0, abs(vWorld.x)) * 0.22;
+      gl_FragColor = vec4(col, 1.0);
+      #include <tonemapping_fragment>
+      #include <encodings_fragment>
+      #include <fog_fragment>
+    }`
+});
+const water = new THREE.Mesh(new THREE.PlaneGeometry(170, 170, 170, 170).rotateX(-Math.PI / 2), waterMat);
+water.position.set(0, WATER_Y, -14);
+scene.add(water);
+
+/* ---------- 程序化贴图（木纹、草地、泥土、沙地、柔和阴影） ---------- */
+const maxAniso = renderer.capabilities.getMaxAnisotropy();
+function canvasTex(w, h, draw, repeat, srgb = true) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  draw(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c);
+  if (srgb) t.encoding = THREE.sRGBEncoding;
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = maxAniso;
+  if (repeat) t.repeat.set(repeat[0], repeat[1]);
+  return t;
+}
+function speckle(g, w, h, base, colors, count, size) {
+  g.fillStyle = base; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < count; i++) {
+    g.fillStyle = colors[Math.floor(Math.random() * colors.length)];
+    g.globalAlpha = rand(0.25, 0.8);
+    g.fillRect(Math.random() * w, Math.random() * h, rand(size[0], size[1]), rand(size[0], size[1]));
+  }
+  g.globalAlpha = 1;
+}
+function woodTex(v) {
+  const tones = [[118, 88, 60], [98, 74, 50], [132, 100, 68]][v];
+  return canvasTex(512, 64, (g, w, h) => {
+    g.fillStyle = `rgb(${tones})`; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 90; i++) {
+      const y = Math.random() * h, dark = Math.random() < 0.6;
+      g.strokeStyle = dark ? `rgba(38,24,12,${rand(0.06, 0.22)})` : `rgba(200,170,130,${rand(0.04, 0.14)})`;
+      g.lineWidth = rand(0.5, 2.2); g.beginPath();
+      const amp = rand(0.4, 2.5), f = rand(0.004, 0.02), ph = rand(0, 6);
+      for (let x = 0; x <= w; x += 8) { const yy = y + Math.sin(x * f + ph) * amp; x ? g.lineTo(x, yy) : g.moveTo(x, yy); }
+      g.stroke();
+    }
+    for (let k = 0; k < 2; k++) {
+      const kx = rand(40, w - 40), ky = rand(10, h - 10);
+      for (let r = 7; r > 0; r -= 2) { g.strokeStyle = `rgba(40,25,12,${0.35 - r * 0.03})`; g.beginPath(); g.ellipse(kx, ky, r * 2.2, r * 0.8, 0, 0, 7); g.stroke(); }
+    }
+    g.fillStyle = 'rgba(30,20,10,.35)'; g.fillRect(0, 0, 6, h); g.fillRect(w - 6, 0, 6, h);   // 两端颜色深一点
+  });
+}
+const woodTexes = [0, 1, 2].map(woodTex);
+const woodMats = woodTexes.map(t => new THREE.MeshStandardMaterial({ map: t, bumpMap: t, bumpScale: 0.012, roughness: 0.9 }));
+const battenMat = new THREE.MeshStandardMaterial({ color: lin(0x3e2e20), roughness: 0.95 });
+
+const grassTex = canvasTex(256, 256, (g, w, h) =>
+  speckle(g, w, h, '#4f6634', ['#5e7a3c', '#3f5528', '#6e8a46', '#56703a', '#7a8f4e', '#46592c'], 9000, [1, 3]), [40, 10]);
+const dirtTex = canvasTex(256, 256, (g, w, h) =>
+  speckle(g, w, h, '#5a4632', ['#6b543c', '#4a3828', '#7a6448', '#3e3022'], 6000, [1, 4]), [30, 1]);
+const sandTex = canvasTex(256, 256, (g, w, h) =>
+  speckle(g, w, h, '#a8946c', ['#b9a67e', '#968260', '#c4b38c', '#8a7756'], 7000, [1, 3]), [40, 1]);
+const shadowTex = canvasTex(128, 128, (g, w, h) => {
+  const gr = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2);
+  gr.addColorStop(0, 'rgba(0,0,0,0.55)'); gr.addColorStop(0.6, 'rgba(0,0,0,0.25)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, w, h);
+}, null, false);
+const shadowMat = new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
+const shadowGeo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
+
+const grassMat = new THREE.MeshStandardMaterial({ map: grassTex, roughness: 1 });
+const dirtMat = new THREE.MeshStandardMaterial({ map: dirtTex, roughness: 1 });
+const sandMat = new THREE.MeshStandardMaterial({ map: sandTex, roughness: 1 });
+
+/* ---------- 自然元素：石头、草丛、芦苇、树、谷仓 ---------- */
+function jitterGeo(geo, amt) {
+  const p = geo.attributes.position, v = new THREE.Vector3();
+  for (let i = 0; i < p.count; i++) {
+    v.fromBufferAttribute(p, i);
+    const k = Math.sin(v.x * 12.9 + v.y * 78.2 + v.z * 37.7) * 43758.5;
+    v.multiplyScalar(1 + (k - Math.floor(k) - 0.5) * amt);
+    p.setXYZ(i, v.x, v.y, v.z);
+  }
+  geo.computeVertexNormals();
+  return geo;
+}
+const rockGeo = jitterGeo(new THREE.DodecahedronGeometry(1, 1), 0.35);
+const rockMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, flatShading: true });
+const leafGeo = jitterGeo(new THREE.IcosahedronGeometry(1, 1), 0.3);
+const woolGeo = new THREE.IcosahedronGeometry(1, 2);
+const leafMats = [0x3d5a2c, 0x4a6834, 0x55733b, 0x34502a].map(c => new THREE.MeshStandardMaterial({ color: lin(c), roughness: 0.9, flatShading: true }));
+const pineMat = new THREE.MeshStandardMaterial({ color: lin(0x2e4a2c), roughness: 0.9, flatShading: true });
+const barkMat = new THREE.MeshStandardMaterial({ color: lin(0x4a3a2b), roughness: 1 });
+const bladeGeo = new THREE.ConeGeometry(0.018, 0.22, 3).translate(0, 0.11, 0);
+const reedGeo = new THREE.CylinderGeometry(0.008, 0.016, 1, 4).translate(0, 0.5, 0);
+const cattailGeo = new THREE.CylinderGeometry(0.028, 0.028, 0.16, 6);
+const plainMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 });
+const tmpObj = new THREE.Object3D(), tmpCol = new THREE.Color();
+const SHARED_GEOS = [rockGeo, leafGeo, woolGeo, bladeGeo, reedGeo, cattailGeo, shadowGeo];
+
+let levelGroup = null;
+function addMesh(geo, mat, x, y, z, parent = levelGroup, cast = true) {
+  const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = cast; m.receiveShadow = true; parent.add(m); return m;
+}
+function instanced(geo, mat, items, cast) {
+  if (!items.length) return;
+  const im = new THREE.InstancedMesh(geo, mat, items.length);
+  items.forEach((it, i) => {
+    tmpObj.position.set(it.x, it.y, it.z); tmpObj.rotation.set(it.rx || 0, it.ry || 0, it.rz || 0);
+    tmpObj.scale.set(it.sx, it.sy, it.sz); tmpObj.updateMatrix();
+    im.setMatrixAt(i, tmpObj.matrix); im.setColorAt(i, tmpCol.set(it.c).convertSRGBToLinear());
+  });
+  im.castShadow = !!cast; im.receiveShadow = true;
+  levelGroup.add(im); return im;
+}
+// 岸：顶面草地，侧面泥土
+function addBank(zMin, zMax, top = grassMat) {
+  const d = zMax - zMin;
+  const m = new THREE.Mesh(new THREE.BoxGeometry(90, 0.7, d), [dirtMat, dirtMat, top, dirtMat, dirtMat, dirtMat]);
+  m.position.set(0, -0.35, (zMin + zMax) / 2); m.receiveShadow = true; levelGroup.add(m);
+}
+function shoreRocks(z, list, dense = 1) {
+  for (let x = -24; x < 24; x += rand(0.25, 0.6) / dense) {
+    const s = rand(0.08, 0.22);
+    list.push({ x: x, y: WATER_Y + s * 0.2, z: z + rand(-0.15, 0.12), sx: s * rand(1, 1.6), sy: s * rand(0.6, 0.9), sz: s * rand(0.9, 1.3),
+      ry: rand(0, 6), c: [0x77736b, 0x8a857a, 0x5f5c56, 0x9a9384, 0x6b665c][Math.floor(rand(0, 5))] });
+  }
+}
+function grassTufts(zMin, zMax, count, list) {
+  for (let i = 0; i < count; i++) {
+    const s = rand(0.6, 1.3);
+    list.push({ x: rand(-18, 18), y: 0, z: rand(zMin, zMax), sx: s, sy: s * rand(0.7, 1.5), sz: s, rx: rand(-0.35, 0.35), rz: rand(-0.35, 0.35), ry: rand(0, 6),
+      c: [0x7d9a4a, 0x8aa356, 0x6f8c40, 0x95a35e, 0x6a8a3e][Math.floor(rand(0, 5))] });
+  }
+}
+function reeds(z, half, reedList, tailList) {
+  for (let x = -24; x < 24; x += rand(0.08, 0.3)) {
+    if (Math.abs(x) < half + 1.2) continue;
+    if (Math.random() < 0.35) continue;
+    const h = rand(0.6, 1.3), zz = z + rand(-0.3, 0.25), rx = rand(-0.12, 0.12), rz = rand(-0.12, 0.12);
+    reedList.push({ x, y: WATER_Y, z: zz, sx: 1, sy: h, sz: 1, rx, rz, c: [0x5d6e3a, 0x6f7a44, 0x7f8550, 0x4f6233][Math.floor(rand(0, 4))] });
+    if (Math.random() < 0.3) tailList.push({ x: x - Math.sin(rz) * h * 0.95, y: WATER_Y + h * 0.95, z: zz + Math.sin(rx) * h * 0.95, sx: 1, sy: 1, sz: 1, rx, rz, c: 0x5a3d26 });
+  }
+}
+function addTree(x, z, s) {
+  const g = new THREE.Group(); g.position.set(x, 0, z); g.scale.setScalar(s); g.rotation.y = rand(0, 6); levelGroup.add(g);
+  addMesh(new THREE.CylinderGeometry(0.07, 0.13, 1.5, 7), barkMat, 0, 0.75, 0, g);
+  const n = Math.floor(rand(4, 7));
+  for (let i = 0; i < n; i++) {
+    const r = rand(0.45, 0.8);
+    const m = addMesh(leafGeo, leafMats[Math.floor(rand(0, leafMats.length))], rand(-0.45, 0.45), 1.6 + rand(0, 0.8), rand(-0.45, 0.45), g);
+    m.scale.set(r, r * rand(0.8, 1), r);
+  }
+}
+function addPine(x, z, s) {
+  const g = new THREE.Group(); g.position.set(x, 0, z); g.scale.setScalar(s); g.rotation.y = rand(0, 6); levelGroup.add(g);
+  addMesh(new THREE.CylinderGeometry(0.06, 0.1, 0.8, 6), barkMat, 0, 0.4, 0, g);
+  for (let k = 0; k < 4; k++) addMesh(new THREE.ConeGeometry(0.85 - k * 0.17, 1.0, 8), pineMat, 0, 0.9 + k * 0.55, 0, g);
+}
+function addBarn(x, z) {
+  const g = new THREE.Group(); g.position.set(x, 0, z); levelGroup.add(g);
+  const red = new THREE.MeshStandardMaterial({ color: lin(0x7b3428), roughness: 0.85, side: THREE.DoubleSide });
+  const trim = new THREE.MeshStandardMaterial({ color: lin(0xe6dfd2), roughness: 0.8 });
+  const roof = new THREE.MeshStandardMaterial({ color: lin(0x3a3634), roughness: 0.8 });
+  const dark = new THREE.MeshStandardMaterial({ color: lin(0x4e2219), roughness: 0.9 });
+  addMesh(new THREE.BoxGeometry(3.6, 2.0, 2.8), red, 0, 1.0, 0, g);
+  const tri = new THREE.Shape(); tri.moveTo(-1.8, 0); tri.lineTo(1.8, 0); tri.lineTo(0, 1.2); tri.lineTo(-1.8, 0);
+  [-1.4, 1.4].forEach(zz => addMesh(new THREE.ShapeGeometry(tri), red, 0, 2.0, zz, g));
+  [-1, 1].forEach(s => {
+    const r = addMesh(new THREE.BoxGeometry(2.25, 0.08, 3.1), roof, s * 0.95, 2.6, 0, g);
+    r.rotation.z = -s * Math.atan2(1.2, 1.8);
+  });
+  addMesh(new THREE.BoxGeometry(1.2, 1.45, 0.06), dark, 0, 0.72, 1.41, g);
+  [[0, 1.47, 1.3, 0.08], [-0.62, 0.74, 0.08, 1.5], [0.62, 0.74, 0.08, 1.5]].forEach(([xx, yy, w, h]) => addMesh(new THREE.BoxGeometry(w, h, 0.05), trim, xx, yy, 1.45, g));
+  [-1, 1].forEach(s => { const d = addMesh(new THREE.BoxGeometry(1.6, 0.07, 0.04), trim, 0, 0.74, 1.46, g); d.rotation.z = s * Math.atan2(1.4, 1.15); });
+  [-1.8, 1.8].forEach(xx => addMesh(new THREE.BoxGeometry(0.1, 2.0, 2.85), trim, xx, 1.0, 0, g));
+  const hay = new THREE.MeshStandardMaterial({ color: lin(0xb89a58), roughness: 1 });
+  [[2.5, 0.6], [2.9, -0.3], [-2.6, 0.5]].forEach(([xx, zz]) => { const h = addMesh(new THREE.CylinderGeometry(0.38, 0.38, 0.55, 14), hay, xx, 0.38, zz, g); h.rotation.z = Math.PI / 2; h.rotation.y = rand(0, 1); });
+}
+function addFence(z) {
+  const wood = new THREE.MeshStandardMaterial({ map: woodTexes[1], roughness: 0.95 });
+  for (let x = -14; x <= 14; x += 1.2) {
+    if (Math.abs(x) < 1.0) continue;
+    addMesh(new THREE.BoxGeometry(0.09, 0.75, 0.09), wood, x, 0.37, z);
+    if (x + 1.2 <= 14 && Math.abs(x + 0.6) > 1.0) {
+      [0.28, 0.58].forEach(y => addMesh(new THREE.BoxGeometry(1.2, 0.06, 0.04), wood, x + 0.6, y, z + 0.05));
+    }
+  }
+}
+function addHills(z) {
+  const cols = [0x5d6d4c, 0x6a7756, 0x56664a, 0x707b5c];
+  for (let i = 0; i < 7; i++) {
+    const m = addMesh(new THREE.SphereGeometry(1, 24, 12), new THREE.MeshStandardMaterial({ color: lin(cols[i % 4]), roughness: 1 }),
+      -36 + i * 12 + rand(-3, 3), -1.5, z - rand(0, 14), levelGroup, false);
+    m.scale.set(rand(9, 15), rand(3, 6), rand(6, 9));
+  }
+}
+
+/* ---------- 木筏 ---------- */
+function makeRaft(len) {
+  const g = new THREE.Group();
+  const bw = 0.24, gap = 0.03;
+  for (let i = 0; i < 3; i++) {
+    const b = addMesh(new THREE.BoxGeometry(len * rand(0.94, 1), 0.08, bw), woodMats[Math.floor(rand(0, 3))], rand(-0.05, 0.05), rand(-0.004, 0.008), (i - 1) * (bw + gap), g);
+    b.rotation.y = rand(-0.015, 0.015);
+  }
+  const nb = Math.max(2, Math.round(len / 1.1));
+  for (let j = 0; j < nb; j++) {
+    const x = -len / 2 + 0.3 + j * (len - 0.6) / (nb - 1);
+    addMesh(new THREE.BoxGeometry(0.13, 0.06, 0.86), battenMat, x, -0.06, 0, g);
+    addMesh(new THREE.BoxGeometry(0.05, 0.085, 0.86), battenMat, x, 0.005, 0, g, false);  // 绳结
+  }
+  const sh = new THREE.Mesh(shadowGeo, shadowMat); sh.scale.set(len + 0.7, 1, 1.5); g.add(sh);
+  return g;
+}
+
+/* ---------- 小羊 ---------- */
+function makeSheep(accent = null) {
+  const root = new THREE.Group(), body = new THREE.Group(); root.add(body);
+  const wool = new THREE.MeshStandardMaterial({ color: lin(accent || 0xebe5d6), roughness: 1 });
+  const woolShade = new THREE.MeshStandardMaterial({ color: lin(0xd8cfbc), roughness: 1 });
+  const face = new THREE.MeshStandardMaterial({ color: lin(0x2b2623), roughness: 0.7 });
+  const hoof = new THREE.MeshStandardMaterial({ color: lin(0x15120f), roughness: 0.5 });
+  const eye = new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.1 });
+  const sphere = new THREE.SphereGeometry(1, 20, 14);
+  const add = (geo, mat, x, y, z, parent, s) => { const m = addMesh(geo, mat, x, y, z, parent); if (s) m.scale.set(...s); return m; };
+
+  add(sphere, wool, 0, 0.5, 0, body, [0.27, 0.23, 0.36]);
+  const N = 110;
+  for (let i = 0; i < N; i++) {
+    const y = 1 - (i + 0.5) / N * 2, r = Math.sqrt(1 - y * y), th = i * 2.39996;
+    if (y < -0.55) continue;
+    const s = rand(0.07, 0.1);
+    add(woolGeo, Math.random() < 0.3 ? woolShade : wool, Math.cos(th) * r * 0.27, 0.5 + y * 0.22, Math.sin(th) * r * 0.36, body, [s, s, s]);
+  }
+  add(woolGeo, wool, 0, 0.56, 0.38, body, [0.07, 0.07, 0.07]);   // 尾巴
+
+  const head = new THREE.Group(); head.position.set(0, 0.6, -0.36); head.rotation.x = 0.18; body.add(head);
+  add(sphere, face, 0, -0.03, -0.09, head, [0.115, 0.125, 0.19]).rotation.x = 0.35;
+  [-1, 1].forEach(s => {
+    add(sphere, eye, s * 0.075, 0.03, -0.12, head, [0.022, 0.022, 0.022]);
+    const earPivot = new THREE.Group(); earPivot.position.set(s * 0.1, 0.04, -0.02); earPivot.rotation.z = s * -0.35; head.add(earPivot);
+    add(sphere, face, s * 0.08, 0, 0, earPivot, [0.09, 0.028, 0.045]);
+  });
+  for (let i = 0; i < 6; i++) add(woolGeo, wool, rand(-0.06, 0.06), 0.1 + rand(0, 0.03), rand(-0.02, 0.08), head, [0.065, 0.06, 0.065]);
+
+  const legs = [];
+  [[0.13, -0.2], [-0.13, -0.2], [0.13, 0.2], [-0.13, 0.2]].forEach(([x, z]) => {
+    const pivot = new THREE.Group(); pivot.position.set(x, 0.36, z); body.add(pivot);
+    addMesh(new THREE.CylinderGeometry(0.034, 0.03, 0.32, 8), face, 0, -0.16, 0, pivot);
+    addMesh(new THREE.CylinderGeometry(0.036, 0.04, 0.05, 8), hoof, 0, -0.335, 0, pivot);
+    legs.push(pivot);
+  });
+  root.scale.setScalar(1.15);
+  return { root, body, head, legs };
+}
+const sheepObj = makeSheep();
+scene.add(sheepObj.root);
+const sheepShadow = new THREE.Mesh(shadowGeo, shadowMat);
+scene.add(sheepShadow);
+
+const remoteSheep = new Map();
+function makeNameLabel(name, color) {
+  const canvas = document.createElement('canvas'); canvas.width = 512; canvas.height = 96;
+  const context = canvas.getContext('2d');
+  context.font = '600 42px -apple-system, PingFang SC, sans-serif';
+  const width = Math.min(470, Math.ceil(context.measureText(name).width + 44));
+  context.fillStyle = 'rgba(10,14,18,.72)';
+  context.fillRect((512 - width) / 2, 10, width, 70); context.fill();
+  context.fillStyle = color; context.textAlign = 'center'; context.textBaseline = 'middle'; context.fillText(name, 256, 45);
+  const texture = new THREE.CanvasTexture(canvas); texture.encoding = THREE.sRGBEncoding;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false }));
+  sprite.scale.set(1.5, 0.28, 1); sprite.position.y = 1.55;
+  return sprite;
+}
+function addRemoteSheep(player) {
+  if (remoteSheep.has(player.id)) return remoteSheep.get(player.id);
+  const model = makeSheep(player.color);
+  const shadow = new THREE.Mesh(shadowGeo, shadowMat.clone());
+  const label = makeNameLabel(player.name, player.color);
+  model.root.add(label); scene.add(model.root, shadow);
+  const visual = { model, shadow, target: { ...player.state }, id: player.id };
+  remoteSheep.set(player.id, visual); return visual;
+}
+function removeRemoteSheep(id) {
+  const visual = remoteSheep.get(id); if (!visual) return;
+  scene.remove(visual.model.root, visual.shadow);
+  visual.model.root.traverse(node => { if (node.material?.map?.image?.tagName === 'CANVAS') node.material.map.dispose(); });
+  remoteSheep.delete(id);
+}
+function updateRemoteSheep(dt) {
+  remoteSheep.forEach(visual => {
+    const target = visual.target; if (!target) return;
+    const root = visual.model.root, k = 1 - Math.exp(-dt * 14);
+    root.visible = target.visible !== false;
+    root.position.lerp(new THREE.Vector3(target.x, target.y, target.z), k);
+    const angle = ANGLE[target.dir] ?? 0;
+    const diff = ((angle - root.rotation.y + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
+    root.rotation.y += diff * Math.min(1, dt * 14);
+    const hop = target.jumping ? 0.25 : 0;
+    visual.model.body.position.y += (hop - visual.model.body.position.y) * Math.min(1, dt * 16);
+    visual.model.legs.forEach((leg, i) => leg.rotation.x = (i < 2 ? -1 : 1) * hop);
+    const under = rows[clamp(Math.round(-target.z), 0, goalRow)];
+    const surface = under?.type === 'land' ? 0.006 : WATER_Y + 0.025;
+    visual.shadow.visible = root.visible; visual.shadow.position.set(root.position.x, surface, root.position.z);
+    visual.shadow.scale.set(0.72, 1, 0.9);
+  });
+}
+
+// 落点指示圈
+const marker = new THREE.Group();
+marker.add(new THREE.Mesh(new THREE.RingGeometry(0.27, 0.31, 48).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.55, depthWrite: false })));
+marker.add(new THREE.Mesh(new THREE.CircleGeometry(0.04, 16).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.6, depthWrite: false })));
+scene.add(marker);
+
+/* ---------- 特效：水花、涟漪、光点 ---------- */
+const particles = [], ripples = [];
+const dropGeo = new THREE.SphereGeometry(1, 6, 5);
+function spray(x, y, z, n, color, opts = {}) {
+  for (let i = 0; i < n; i++) {
+    const m = new THREE.Mesh(dropGeo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: opts.opacity || 0.85, depthWrite: false, blending: opts.additive ? THREE.AdditiveBlending : THREE.NormalBlending }));
+    m.scale.setScalar(rand(...(opts.size || [0.025, 0.06])));
+    m.position.set(x + rand(-0.15, 0.15), y, z + rand(-0.15, 0.15)); scene.add(m);
+    const sp = opts.spread || 1.4, up = opts.up || [2, 4];
+    particles.push({ m, v: new THREE.Vector3(rand(-sp, sp), rand(up[0], up[1]), rand(-sp, sp)), life: rand(...(opts.life || [0.5, 0.9])), g: opts.gravity ?? 9.8 });
+  }
+}
+function ripple(x, z, delay = 0, size = 1.4) {
+  const m = new THREE.Mesh(new THREE.RingGeometry(0.9, 1, 48).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xe8f1f2, transparent: true, opacity: 0, depthWrite: false }));
+  m.position.set(x, WATER_Y + 0.02, z); m.scale.setScalar(0.1); scene.add(m);
+  ripples.push({ m, t: -delay, size });
+}
+function updateEffects(dt) {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.v.y -= p.g * dt; p.m.position.addScaledVector(p.v, dt); p.life -= dt;
+    p.m.material.opacity = Math.min(p.m.material.opacity, Math.max(0, p.life * 1.5));
+    if (p.life <= 0 || (p.g > 0 && p.m.position.y < WATER_Y - 0.1)) { scene.remove(p.m); p.m.material.dispose(); particles.splice(i, 1); }
+  }
+  for (let i = ripples.length - 1; i >= 0; i--) {
+    const r = ripples[i]; r.t += dt;
+    if (r.t < 0) continue;
+    const k = r.t / 1.1;
+    r.m.scale.setScalar(0.1 + k * r.size); r.m.material.opacity = 0.5 * (1 - k);
+    if (k >= 1) { scene.remove(r.m); r.m.geometry.dispose(); r.m.material.dispose(); ripples.splice(i, 1); }
+  }
+}
+
+/* ---------- 光照时段 ---------- */
+function applyAtmosphere(name) {
+  const A = CONFIG.atmosphere[name] || CONFIG.atmosphere.morning;
+  sunDir.set(...A.sunDir).normalize();
+  sunLight.color.copy(lin(A.sun)); sunLight.intensity = A.sunIntensity;
+  hemi.color.copy(lin(A.hemiSky)); hemi.groundColor.copy(lin(A.hemiGround)); hemi.intensity = A.hemiIntensity;
+  renderer.toneMappingExposure = A.exposure;
+  scene.fog.color.set(A.horizon);
+  scene.background = new THREE.Color(A.horizon);
+  const su = sky.material.uniforms;
+  su.topColor.value.copy(lin(A.skyTop)); su.horizonColor.value.copy(lin(A.horizon)); su.sunColor.value.copy(lin(A.sun));
+  const wu = waterMat.uniforms;
+  wu.uSunDir.value.copy(sunDir); wu.uSunColor.value.copy(lin(A.sun));
+  wu.uDeep.value.copy(lin(A.waterDeep)); wu.uShallow.value.copy(lin(A.waterShallow));
+  wu.uSkyTop.value.copy(lin(A.skyTop)); wu.uSkyHorizon.value.copy(lin(A.horizon));
+}
+
+/* ---------- 搭建关卡 ---------- */
+let rows = [], goalRow = 0;
+function buildLevel(i, seed = null) {
+  currentLevelSeed = seed;
+  return withLevelSeed(seed, () => {
+  if (levelGroup) {
+    scene.remove(levelGroup);
+    levelGroup.traverse(o => { if (o.geometry && !SHARED_GEOS.includes(o.geometry)) o.geometry.dispose(); });
+  }
+  levelGroup = new THREE.Group(); scene.add(levelGroup);
+  const L = CONFIG.levels[i], N = L.lanes, W = CONFIG.riverWidth, half = W / 2, span = W + 2 * SIDE;
+  goalRow = N + 1; rows = [];
+  applyAtmosphere(L.timeOfDay);
+
+  const farEdge = -(goalRow - 0.5);
+  rows[0] = { type: 'land' }; rows[goalRow] = { type: 'land' };
+  addBank(-0.5, 16);
+  addBank(farEdge - 60, farEdge);
+
+  const rocks = [], tufts = [], reedL = [], tails = [];
+  shoreRocks(-0.5, rocks); shoreRocks(farEdge, rocks);
+  grassTufts(0.6, 9, 4500, tufts); grassTufts(farEdge - 10, farEdge - 0.6, 3500, tufts);
+  reeds(-0.45, half, reedL, tails); reeds(farEdge + 0.05, half, reedL, tails);
+
+  // 沙洲
+  for (let r = 1; r <= N; r++) {
+    if ((L.safeLanes || []).includes(r)) {
+      rows[r] = { type: 'land' };
+      const m = new THREE.Mesh(new THREE.BoxGeometry(90, 0.5, 1.0), [dirtMat, dirtMat, sandMat, dirtMat, dirtMat, dirtMat]);
+      m.position.set(0, -0.25, -r); m.receiveShadow = true; levelGroup.add(m);
+      shoreRocks(-r - 0.5, rocks, 0.6); shoreRocks(-r + 0.5, rocks, 0.6);
+    }
+  }
+  instanced(rockGeo, rockMat, rocks, true);
+  instanced(bladeGeo, plainMat, tufts, false);
+  instanced(reedGeo, plainMat, reedL, false);
+  instanced(cattailGeo, plainMat, tails, false);
+
+  // 树木
+  for (let k = 0; k < 16; k++) {
+    const side = k % 2 ? 1 : -1;
+    const fn = Math.random() < 0.35 ? addPine : addTree;
+    fn(side * rand(half + 2.5, half + 14), rand(1.5, 12), rand(0.9, 1.5));
+    fn(side * rand(half + 1.5, half + 16), farEdge - rand(1.5, 14), rand(1.0, 1.7));
+  }
+  addBarn(0, farEdge - 5.2);
+  addFence(farEdge - 2.0);
+  addHills(farEdge - 34);
+
+  // 边界木桩
+  const stakeMat = new THREE.MeshStandardMaterial({ map: woodTexes[1], color: lin(0xb8a48c), roughness: 1 });
+  for (let r = 0; r <= N; r++) [-1, 1].forEach(s => {
+    const st = addMesh(new THREE.CylinderGeometry(0.05, 0.06, 0.75, 7), stakeMat, s * (half + 0.55), 0.0, -r - 0.5);
+    st.rotation.z = rand(-0.08, 0.08);
+  });
+
+  // 河道与木筏
+  const speeds = new Array(16).fill(0);
+  for (let r = 1; r <= N; r++) {
+    if (rows[r]) continue;
+    const dir = r % 2 ? 1 : -1;
+    const speed = pick(L.speed) * dir;
+    const rafts = [];
+    let x = 0;
+    while (x < span) {
+      const len = pick(L.plankLength), gap = pick(L.gap);
+      rafts.push({ x: x + len / 2, len });
+      x += len + gap;
+    }
+    const period = x, off = rand(0, period);
+    rafts.forEach(p => {
+      p.x = wrap(p.x + off, period);
+      p.phase = rand(0, 6); p.dip = 0; p.dipV = 0;
+      p.group = makeRaft(p.len);
+      p.group.position.set(p.x, WATER_Y + 0.03, -r);
+      levelGroup.add(p.group);
+    });
+    rows[r] = { type: 'water', speed, rafts, period };
+    if (r < 16) speeds[r] = speed;
+  }
+  const wu = waterMat.uniforms;
+  wu.uLaneSpeed.value = speeds; wu.uBankNear.value = -0.5; wu.uBankFar.value = farEdge; wu.uPlayHalf.value = half + 0.6;
+  });
+}
+
+/* ---------- 游戏状态 ---------- */
+const DIRS = { fwd: [0, 1], back: [0, -1], left: [-1, 0], right: [1, 0] };
+const ANGLE = { fwd: 0, back: Math.PI, left: Math.PI / 2, right: -Math.PI / 2 };
+let state = 'menu', levelIdx = 0, lives = 0, score = 0, timeLeft = 0, bestRow = 0, stateTimer = 0, queued = false, lastLand = -1, elapsed = 0;
+const sheep = { row: 0, x: 0, y: 0, z: 0, dir: 'fwd', jumping: false, jt: 0, from: null, to: null, carry: 0, ride: null, raft: null, sinkFrom: 0 };
+const LIM = () => Math.floor(CONFIG.riverWidth / 2);
+
+function updateHUD() {
+  const L = CONFIG.levels[levelIdx];
+  $('lvNum').textContent = String(levelIdx + 1).padStart(2, '0');
+  $('lvTotal').textContent = String(CONFIG.levels.length).padStart(2, '0');
+  $('lvName').textContent = L.name;
+  $('score').textContent = score;
+  $('lives').innerHTML = Array.from({ length: CONFIG.lives }, (_, i) => `<i class="${i < lives ? '' : 'off'}"></i>`).join('');
+  const t = Math.max(0, timeLeft);
+  $('timeNum').textContent = Math.ceil(t);
+  $('timeFill').style.width = (t / L.timeLimit * 100) + '%';
+  $('timeFill').classList.toggle('low', t < 10);
+}
+let toastTimer = null;
+function toast(msg, sub = '', ms = 1400) {
+  $('toast').innerHTML = (sub ? `<small>${sub}</small>` : '') + msg;
+  $('toast').classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => $('toast').classList.remove('show'), ms);
+}
+function showOverlay(html, btnText, onClick) {
+  $('sheet').innerHTML = html + `<button class="primary" id="ovBtn">${btnText}</button>`;
+  $('overlay').classList.remove('hidden');
+  $('ovBtn').onclick = () => { $('ovBtn').blur(); sfx.click(); $('overlay').classList.add('hidden'); onClick(); };
+}
+function hideOverlay() { $('overlay').classList.add('hidden'); }
+function setDir(d) {
+  sheep.dir = d;
+  document.querySelectorAll('#dpad button').forEach(b => b.classList.toggle('on', b.dataset.dir === d));
+}
+
+/* ---------- 多人房间：身份、房间和状态同步 ---------- */
+const multiplayer = { socket: null, id: null, code: null, hostId: null, phase: 'offline', players: [], levelSeed: null, connected: false, lastSent: 0, completing: false };
+const NAME_ADJECTIVES = ['晨雾', '跳跳', '星光', '暖绒', '栗子', '小云', '溪边', '风铃'];
+const NAME_NOUNS = ['小羊', '绵羊', '羊咩咩', '小牧者', '山羊'];
+function randomName() { return `${NAME_ADJECTIVES[Math.floor(Math.random() * NAME_ADJECTIVES.length)]}${NAME_NOUNS[Math.floor(Math.random() * NAME_NOUNS.length)]}${Math.floor(100 + Math.random() * 900)}`; }
+function savedName() { try { return localStorage.getItem('sheep-river-name') || randomName(); } catch { return randomName(); } }
+function rememberName(name) { try { localStorage.setItem('sheep-river-name', name); } catch {} }
+function roomSocketUrl() {
+  if (!location.host || location.protocol === 'file:') return null;
+  return `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws`;
+}
+function setRoomMessage(message = '', error = false) {
+  const target = $('roomMessage'); if (!target) return;
+  target.textContent = message; target.className = error ? 'roomError' : 'roomHint';
+}
+function fillPlayerList(players) {
+  const list = $('playerList'); if (!list) return;
+  list.replaceChildren();
+  const rankedPlayers = [...players].sort((a, b) => (a.rank ?? Infinity) - (b.rank ?? Infinity) || a.name.localeCompare(b.name, 'zh-CN'));
+  rankedPlayers.forEach(player => {
+    const row = document.createElement('div'); row.className = 'playerRow';
+    const dot = document.createElement('i'); dot.className = 'playerDot'; dot.style.background = player.color;
+    const name = document.createElement('span'); name.className = 'playerName'; name.textContent = `${player.name}${player.id === multiplayer.id ? '（你）' : ''}`;
+    const status = document.createElement('span'); status.className = 'playerStatus'; status.textContent = player.rank ? `第 ${player.rank} 名` : (player.id === multiplayer.hostId ? '房主' : '过河中');
+    row.append(dot, name, status); list.append(row);
+  });
+}
+function renderLeaderboard(players = multiplayer.players) {
+  const board = $('leaderboard'), list = $('rankList');
+  if (!board || !list) return;
+  const visible = multiplayer.phase === 'playing' || multiplayer.phase === 'complete';
+  board.classList.toggle('show', visible);
+  if (!visible) { list.replaceChildren(); return; }
+  list.replaceChildren();
+  [...players].sort((a, b) => (a.rank ?? Infinity) - (b.rank ?? Infinity) || a.name.localeCompare(b.name, 'zh-CN')).forEach(player => {
+    const row = document.createElement('div'); row.className = 'rankRow';
+    const rank = document.createElement('span'); rank.className = `rankNum${player.rank ? '' : ' rankWaiting'}`; rank.textContent = player.rank || '—';
+    const dot = document.createElement('i'); dot.className = 'playerDot'; dot.style.background = player.color;
+    const name = document.createElement('span'); name.className = 'rankName'; name.textContent = `${player.name}${player.id === multiplayer.id ? '（你）' : ''}`;
+    row.append(rank, dot, name); list.append(row);
+  });
+}
+function showLobby(error = '') {
+  $('sheet').innerHTML = `<div class="eyebrow">Online co-op river crossing</div><h1>小羊过河</h1><div class="divider"></div>
+    <p class="sub">创建房间后，把房间码分享给伙伴；所有小羊会在同一条河上一起前进。</p>
+    <div class="roomForm"><label for="playerName">你的名字</label><input id="playerName" maxlength="${MULTIPLAYER.maxNameLength}" autocomplete="nickname" />
+    <label for="roomCode">房间码（加入时填写）</label><input id="roomCode" maxlength="12" autocapitalize="characters" placeholder="例如 A1B2C3" />
+    <div class="roomActions"><button class="primary roomSecondary" id="joinRoom">加入房间</button><button class="primary" id="createRoom">创建房间</button></div>
+    <p class="roomHint" id="roomMessage"></p></div>`;
+  $('playerName').value = savedName();
+  renderLeaderboard();
+  $('overlay').classList.remove('hidden');
+  $('createRoom').onclick = () => connectRoom('create');
+  $('joinRoom').onclick = () => connectRoom('join');
+  if (error) setRoomMessage(error, true);
+}
+function showRoomLobby() {
+  $('sheet').innerHTML = `<div class="eyebrow">Room</div><h1>一起过河</h1><div class="divider"></div><p class="sub">把这个房间码发给伙伴：</p><div class="roomCode" id="shownRoomCode"></div><p class="roomHint" id="roomMessage">等待房主开始游戏</p><div class="playerList" id="playerList"></div><button class="primary roomStart" id="roomStart">开始过河</button>`;
+  $('shownRoomCode').textContent = multiplayer.code;
+  fillPlayerList(multiplayer.players);
+  const canStart = multiplayer.id === multiplayer.hostId;
+  $('roomStart').disabled = !canStart;
+  $('roomStart').textContent = canStart ? '开始过河' : '等待房主开始';
+  $('roomStart').onclick = () => { if (canStart) { sfx.click(); sendRoom({ type: 'start' }); } };
+  $('overlay').classList.remove('hidden');
+}
+function connectRoom(action) {
+  const name = $('playerName')?.value.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, MULTIPLAYER.maxNameLength);
+  const code = $('roomCode')?.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (!name) return setRoomMessage('请先输入一个名字。', true);
+  if (action === 'join' && !code) return setRoomMessage('请输入房间码。', true);
+  const url = roomSocketUrl(); if (!url) return setRoomMessage('请通过 npm start 打开游戏后再创建房间。', true);
+  rememberName(name); setRoomMessage('正在连接…');
+  multiplayer.socket?.close();
+  const socket = new WebSocket(url); multiplayer.socket = socket;
+  socket.onopen = () => sendRoom(action === 'create' ? { type: 'create', name } : { type: 'join', name, roomCode: code });
+  socket.onmessage = event => { try { handleRoomMessage(JSON.parse(event.data)); } catch { setRoomMessage('收到无效的服务器消息。', true); } };
+  socket.onerror = () => setRoomMessage('无法连接房间服务，请确认已运行 npm start。', true);
+  socket.onclose = () => { if (multiplayer.connected && multiplayer.phase !== 'complete') { multiplayer.connected = false; toast('连接已断开', 'Connection lost', 2600); } };
+}
+function sendRoom(message) {
+  if (multiplayer.socket?.readyState === WebSocket.OPEN) multiplayer.socket.send(JSON.stringify(message));
+}
+function handleRoomMessage(message) {
+  if (message.type === 'error') return setRoomMessage(message.message, true);
+  if (message.type === 'joined') {
+    Object.assign(multiplayer, { id: message.id, code: message.code, hostId: message.hostId, levelSeed: message.levelSeed, connected: true });
+    return;
+  }
+  if (message.type === 'playerState') {
+    if (message.id === multiplayer.id) return;
+    const visual = remoteSheep.get(message.id);
+    if (visual) visual.target = message.state;
+    return;
+  }
+  if (message.type === 'room') syncMultiplayerRoom(message);
+}
+function syncMultiplayerRoom(room) {
+  Object.assign(multiplayer, { code: room.code, hostId: room.hostId, phase: room.phase, players: room.players, levelSeed: room.levelSeed, connected: true });
+  const memberIds = new Set(room.players.map(player => player.id));
+  remoteSheep.forEach((_, id) => { if (!memberIds.has(id)) removeRemoteSheep(id); });
+  room.players.forEach(player => {
+    if (player.id === multiplayer.id) return;
+    const visual = addRemoteSheep(player); visual.target = player.state;
+  });
+  if ($('playerList')) fillPlayerList(room.players);
+  renderLeaderboard(room.players);
+  const rankedLocalPlayer = room.players.find(player => player.id === multiplayer.id);
+  if (rankedLocalPlayer?.rank && multiplayer.lastRank !== rankedLocalPlayer.rank) {
+    multiplayer.lastRank = rankedLocalPlayer.rank;
+    toast(`第 ${rankedLocalPlayer.rank} 名抵达`, 'Crossing rank', 2200);
+  }
+  if (room.phase === 'lobby') { showRoomLobby(); return; }
+  if (room.phase === 'playing') {
+    const localPlayer = room.players.find(player => player.id === multiplayer.id);
+    if (levelIdx !== room.levelIdx || state === 'menu' || !multiplayer.started) startRoomLevel(room.levelIdx, room.levelSeed, !multiplayer.started);
+    if (state === 'waiting' && !localPlayer?.completed) { hideOverlay(); state = 'playing'; multiplayer.completing = false; }
+    return;
+  }
+  if (room.phase === 'complete') {
+    state = 'win';
+    showOverlay(`<div class="eyebrow">All players arrived</div><h1>平安到家</h1><div class="divider"></div><p class="sub">所有小羊都穿过了河，回到了谷仓。</p>`, '返回房间', () => { multiplayer.phase = 'lobby'; showRoomLobby(); });
+  }
+}
+function startRoomLevel(nextLevel, seed, freshGame) {
+  multiplayer.started = true; multiplayer.completing = false; multiplayer.lastRank = null; levelIdx = nextLevel;
+  if (freshGame) { lives = CONFIG.lives; score = 0; }
+  startLevel(seed);
+}
+function sendLocalState(now) {
+  if (multiplayer.phase !== 'playing' || !multiplayer.started || now - multiplayer.lastSent < 75) return;
+  multiplayer.lastSent = now;
+  sendRoom({ type: 'state', state: { x: sheep.x, y: sheep.y, z: sheep.z, dir: sheep.dir, jumping: sheep.jumping, visible: sheepObj.root.visible, levelIdx } });
+}
+function completeRoomLevel() {
+  multiplayer.completing = true; state = 'waiting';
+  sendRoom({ type: 'complete', levelIdx });
+  $('sheet').innerHTML = `<div class="eyebrow">Crossing complete</div><h1>抵达对岸</h1><div class="divider"></div><p class="sub">你已安全抵达，正在等待其他小羊过河。</p><div class="playerList" id="playerList"></div>`;
+  fillPlayerList(multiplayer.players); $('overlay').classList.remove('hidden');
+}
+
+function respawn() {
+  Object.assign(sheep, { row: 0, x: 0, y: 0, z: 0, jumping: false, ride: null, raft: null, carry: 0 });
+  setDir('fwd');
+  sheepObj.root.rotation.set(0, 0, 0);
+  queued = false;
+  sheepObj.root.visible = true;
+}
+function startGame() { lives = CONFIG.lives; score = 0; levelIdx = 0; startLevel(); }
+function startLevel(seed = null) {
+  const L = CONFIG.levels[levelIdx];
+  buildLevel(levelIdx, seed);
+  timeLeft = L.timeLimit; bestRow = 0;
+  respawn(); state = 'playing';
+  hideOverlay(); updateHUD();
+  toast(L.name, `Level ${String(levelIdx + 1).padStart(2, '0')}`, 1800);
+  sfx.river();
+}
+
+// 转向：只改朝向，不跳
+function turn(d) {
+  if (state !== 'playing' || sheep.dir === d) return;
+  setDir(d); sfx.turn();
+}
+// 跳跃：朝当前方向跳一格
+function jump() {
+  if (state !== 'playing') return;
+  if (sheep.jumping) {                                   // 快落地时按下，记下来落地后接着跳
+    if (sheep.jt > CONFIG.jumpTime * 0.75) queued = true;
+    return;
+  }
+  if (elapsed - lastLand < CONFIG.inputCooldown) return;
+  const [dx, dr] = DIRS[sheep.dir];
+  const nr = sheep.row + dr;
+  if (nr < 0 || nr > goalRow) return;
+  let nx = sheep.x + dx;
+  if (rows[nr].type === 'land') nx = Math.round(nx);
+  if (Math.abs(nx) > LIM() + 0.01) { if (dr === 0) return; nx = clamp(nx, -LIM(), LIM()); }
+  sheep.from = { x: sheep.x, z: sheep.z, y: sheep.y };
+  sheep.to = { x: nx, z: -nr, row: nr, y: rows[nr].type === 'land' ? 0 : WATER_Y + 0.075 };
+  sheep.carry = sheep.ride ? sheep.ride.speed : 0;
+  if (sheep.raft) sheep.raft.dipV += 0.25;
+  sheep.ride = null; sheep.raft = null; sheep.jumping = true; sheep.jt = 0;
+  sfx.jump();
+}
+
+function land() {
+  sheep.row = sheep.to.row; sheep.x = sheep.to.x; sheep.z = sheep.to.z; sheep.jumping = false;
+  lastLand = elapsed;
+  const row = rows[sheep.row];
+  if (row.type === 'land') {
+    sheep.x = clamp(Math.round(sheep.x), -LIM(), LIM());
+    sheep.y = 0;
+    sfx.grass();
+    spray(sheep.x, 0.02, sheep.z, 6, 0x8a7a5c, { size: [0.02, 0.04], up: [0.6, 1.2], spread: 0.8, life: [0.3, 0.5], gravity: 5 });
+  } else {
+    const raft = row.rafts.find(p => Math.abs(p.x - sheep.x) <= p.len / 2 + CONFIG.landTolerance);
+    if (!raft) { fall('扑通', 'Splash'); return; }
+    sheep.ride = row; sheep.raft = raft;
+    raft.dipV -= 0.9;
+    ripple(sheep.x, sheep.z, 0, 1.0);
+    sfx.wood();
+  }
+  if (sheep.row > bestRow) { score += (sheep.row - bestRow) * CONFIG.scorePerRow; bestRow = sheep.row; }
+  updateHUD();
+  if (sheep.row === goalRow) { levelClear(); return; }
+  if (queued) { queued = false; lastLand = -1; jump(); }
+}
+
+// 落水 / 被冲走
+function fall(msg, sub) {
+  if (state !== 'playing') return;
+  state = 'sinking'; stateTimer = 0; lives--;
+  sheep.jumping = false; sheep.ride = null; sheep.raft = null; queued = false; sheep.sinkFrom = sheep.y;
+  spray(sheep.x, WATER_Y, sheep.z, 34, 0xe6f0f2);
+  ripple(sheep.x, sheep.z, 0, 1.6); ripple(sheep.x, sheep.z, 0.25, 2.2); ripple(sheep.x, sheep.z, 0.5, 2.8);
+  sfx.splash(); toast(msg, sub); updateHUD();
+}
+function timeUp() {
+  state = 'sinking'; stateTimer = 0.6; lives--; queued = false;
+  sheepObj.root.visible = false;
+  spray(sheep.x, sheep.y + 0.4, sheep.z, 20, 0xf2eee6, { up: [0.5, 1.5], gravity: -0.5, life: [0.6, 1] });
+  sfx.fail(); toast('时间到', 'Time up'); updateHUD();
+}
+
+function levelClear() {
+  if (multiplayer.phase === 'playing' && multiplayer.started) {
+    const timeBonus = Math.ceil(timeLeft) * CONFIG.timeBonusPerSec;
+    score += CONFIG.levelBonus + timeBonus; updateHUD(); sfx.chime();
+    spray(sheep.x, 0.3, sheep.z, 40, 0xffd9a0, { additive: true, up: [0.4, 1.4], spread: 1.2, gravity: -0.6, life: [1.2, 2.2], size: [0.02, 0.04] });
+    completeRoomLevel(); return;
+  }
+  state = 'clear'; stateTimer = 0;
+  const timeBonus = Math.ceil(timeLeft) * CONFIG.timeBonusPerSec;
+  const rowScore = bestRow * CONFIG.scorePerRow;
+  score += CONFIG.levelBonus + timeBonus; updateHUD();
+  spray(sheep.x, 0.3, sheep.z, 40, 0xffd9a0, { additive: true, up: [0.4, 1.4], spread: 1.2, gravity: -0.6, life: [1.2, 2.2], size: [0.02, 0.04] });
+  sfx.chime();
+  const last = levelIdx === CONFIG.levels.length - 1;
+  setTimeout(() => {
+    const stats = `<div class="stats">
+      <div><span>前进得分</span><b>${rowScore}</b></div>
+      <div><span>过关奖励</span><b>+${CONFIG.levelBonus}</b></div>
+      <div><span>剩余时间奖励</span><b>+${timeBonus}</b></div>
+      <div class="total"><span>当前总分</span><b>${score}</b></div></div>`;
+    if (last) {
+      state = 'win';
+      showOverlay(`<div class="eyebrow">All levels complete</div><h1>平安到家</h1><div class="divider"></div>
+        <p class="sub">小羊穿过了 ${CONFIG.levels.length} 条河，回到了谷仓。</p>${stats}`, '再玩一次', startGame);
+    } else {
+      showOverlay(`<div class="eyebrow">Level ${String(levelIdx + 1).padStart(2, '0')} complete</div><h1>抵达对岸</h1><div class="divider"></div>
+        <p class="sub">下一关：${CONFIG.levels[levelIdx + 1].name}</p>${stats}`, '下一关', () => { levelIdx++; startLevel(); });
+    }
+  }, 1400);
+}
+function gameOver() {
+  if (multiplayer.phase === 'playing' && multiplayer.started) {
+    lives = CONFIG.lives; score = Math.max(0, score - 50); respawn(); state = 'playing'; updateHUD();
+    toast('重新出发', '生命已补满 · 扣除 50 分'); return;
+  }
+  state = 'over';
+  sfx.fail();
+  showOverlay(`<div class="eyebrow">Game over</div><h1>未能过河</h1><div class="divider"></div>
+    <p class="sub">停在了第 ${levelIdx + 1} 关 · ${CONFIG.levels[levelIdx].name}</p>
+    <div class="stats"><div class="total"><span>最终得分</span><b>${score}</b></div></div>`, '重新开始', startGame);
+}
+
+/* ---------- 每帧更新 ---------- */
+function updateWorld(dt) {
+  waterMat.uniforms.uTime.value = elapsed;
+  rows.forEach(row => {
+    if (row.type !== 'water') return;
+    row.rafts.forEach(p => {
+      p.x = wrap(p.x + row.speed * dt, row.period);
+      p.dipV += (-60 * p.dip - 7 * p.dipV) * dt;          // 弹簧：踩上去下沉再浮起
+      p.dip += p.dipV * dt;
+      const g = p.group;
+      g.position.x = p.x;
+      g.position.y = WATER_Y + 0.03 + Math.sin(elapsed * 1.6 + p.phase) * 0.012 + p.dip * 0.08;
+      g.rotation.z = Math.sin(elapsed * 1.2 + p.phase) * 0.018;
+      g.rotation.x = Math.sin(elapsed * 1.7 + p.phase * 2) * 0.014 + p.dip * 0.02;
+    });
+  });
+}
+
+function updateSheep(dt) {
+  const S = sheepObj;
+  if (state === 'playing') {
+    if (sheep.jumping) {
+      sheep.jt += dt;
+      sheep.from.x += sheep.carry * dt; sheep.to.x += sheep.carry * dt;
+      const t = Math.min(1, sheep.jt / CONFIG.jumpTime);
+      const e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+      sheep.x = lerp(sheep.from.x, sheep.to.x, e);
+      sheep.z = lerp(sheep.from.z, sheep.to.z, e);
+      sheep.y = lerp(sheep.from.y, sheep.to.y, t) + Math.sin(Math.PI * t) * 0.5;
+      if (t >= 1) land();
+    } else if (sheep.ride) {
+      sheep.x += sheep.ride.speed * dt;
+      sheep.y = sheep.raft.group.position.y + 0.045;
+      if (Math.abs(sheep.x) > CONFIG.riverWidth / 2 + 0.3) fall('被冲走了', 'Swept away');
+    }
+    if (state === 'playing') {
+      timeLeft -= dt;
+      if (timeLeft <= 0) { timeLeft = CONFIG.levels[levelIdx].timeLimit; timeUp(); }
+    }
+  } else if (state === 'sinking') {
+    stateTimer += dt;
+    if (S.root.visible) {
+      sheep.y = sheep.sinkFrom - stateTimer * stateTimer * 2.2;
+      S.root.rotation.z = Math.min(0.6, stateTimer);
+      if (sheep.y < WATER_Y - 0.9) S.root.visible = false;
+    }
+    if (stateTimer > 1.4) {
+      if (lives <= 0) gameOver();
+      else { respawn(); state = 'playing'; updateHUD(); }
+    }
+  } else if (state === 'clear' || state === 'win') {
+    stateTimer += dt;
+    sheep.y = Math.abs(Math.sin(stateTimer * 7)) * 0.22;
+    if (sheep.dir !== 'back' && stateTimer > 0.6) setDir('back');   // 转身面向镜头
+  }
+
+  // 模型姿态
+  S.root.position.set(sheep.x, sheep.y, sheep.z);
+  const cur = S.root.rotation.y;
+  const diff = ((ANGLE[sheep.dir] - cur + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
+  S.root.rotation.y = cur + diff * Math.min(1, dt * 14);
+  const jt = sheep.jumping ? Math.sin(Math.PI * Math.min(1, sheep.jt / CONFIG.jumpTime)) : 0;
+  S.legs.forEach((l, i) => l.rotation.x = (i < 2 ? -1 : 1) * jt * 0.7);
+  const breathe = 1 + Math.sin(elapsed * 2.2) * 0.012;
+  S.body.scale.set(1 - jt * 0.05, breathe + jt * 0.08, 1 - jt * 0.05);
+  S.head.rotation.x = 0.18 + Math.sin(elapsed * 1.3) * 0.04 - jt * 0.15;
+
+  // 脚下阴影
+  const rowUnder = rows[clamp(Math.round(-sheep.z), 0, goalRow)];
+  let surf = rowUnder && rowUnder.type === 'land' ? 0.006 : WATER_Y + 0.025;
+  if (sheep.raft) surf = sheep.raft.group.position.y + 0.05;
+  sheepShadow.visible = S.root.visible;
+  sheepShadow.position.set(sheep.x, surf, sheep.z);
+  const hs = 1 - clamp((sheep.y - surf) * 0.8, 0, 0.5);
+  sheepShadow.scale.set(0.75 * hs, 1, 0.95 * hs);
+
+  // 落点指示
+  marker.visible = false;
+  if (state === 'playing' && !sheep.jumping) {
+    const [dx, dr] = DIRS[sheep.dir], nr = sheep.row + dr;
+    if (nr >= 0 && nr <= goalRow) {
+      let nx = sheep.x + dx;
+      if (rows[nr].type === 'land') nx = Math.round(nx);
+      if (Math.abs(nx) <= LIM() + 0.01 || dr !== 0) {
+        nx = clamp(nx, -LIM() - 0.3, LIM() + 0.3);
+        marker.visible = true;
+        marker.position.set(nx, rows[nr].type === 'land' ? 0.012 : WATER_Y + 0.05, -nr);
+        marker.scale.setScalar(1 + Math.sin(elapsed * 5) * 0.06);
+      }
+    }
+  }
+}
+
+/* ---------- 相机：跟随小羊，并根据横竖屏自动调整 ---------- */
+let camDist = 12, camElev = deg(38), focusAhead = 3.3;
+const camFocus = new THREE.Vector3(0, 0, -2.5);
+function resize() {
+  const w = window.innerWidth, h = window.innerHeight, portrait = h > w;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.fov = portrait ? 52 : 38;
+  camElev = deg(portrait ? 56 : 38);
+  focusAhead = portrait ? 4.2 : 3.3;
+  const t = Math.tan(deg(camera.fov / 2));
+  const distW = (CONFIG.riverWidth / 2 + (portrait ? 0.4 : 0.9)) / (t * camera.aspect);
+  camDist = Math.max(distW, portrait ? 11 : 12.5);
+  scene.fog.near = camDist + 8; scene.fog.far = camDist + 60;
+  camera.updateProjectionMatrix();
+}
+function updateCamera(dt) {
+  const k = 1 - Math.exp(-dt * 3.2);
+  camFocus.x += (sheep.x * 0.3 - camFocus.x) * k;
+  camFocus.z += (sheep.z - focusAhead - camFocus.z) * k;
+  const sway = Math.sin(elapsed * 0.25) * 0.15;
+  camera.position.set(camFocus.x + sway, camDist * Math.sin(camElev), camFocus.z + camDist * Math.cos(camElev));
+  camera.lookAt(camFocus);
+  sky.position.copy(camera.position);
+  sunLight.position.copy(camFocus).addScaledVector(sunDir, 30);
+  sunLight.target.position.copy(camFocus);
+}
+window.addEventListener('resize', resize);
+window.addEventListener('orientationchange', () => setTimeout(resize, 250));
+
+/* ---------- 输入 ---------- */
+// 电脑：WASD / 方向键 只转向，空格跳跃
+const TURN_KEYS = { KeyW: 'fwd', ArrowUp: 'fwd', KeyS: 'back', ArrowDown: 'back', KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right' };
+window.addEventListener('keydown', e => {
+  if (e.code === 'Enter' && !$('overlay').classList.contains('hidden')) { e.preventDefault(); $('ovBtn')?.click(); return; }
+  if (e.code === 'Space' || TURN_KEYS[e.code]) {
+    e.preventDefault();
+    if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
+  }
+  if (e.code === 'Space') { if (!e.repeat) jump(); return; }
+  if (TURN_KEYS[e.code]) turn(TURN_KEYS[e.code]);
+});
+// 手机：在画面上滑动 = 转向，轻点 = 跳跃
+let touchStart = null;
+canvas.addEventListener('pointerdown', e => { touchStart = { x: e.clientX, y: e.clientY }; });
+canvas.addEventListener('pointerup', e => {
+  if (!touchStart) return;
+  const dx = e.clientX - touchStart.x, dy = e.clientY - touchStart.y; touchStart = null;
+  if (Math.hypot(dx, dy) < 24) { jump(); return; }
+  if (Math.abs(dx) > Math.abs(dy)) turn(dx > 0 ? 'right' : 'left');
+  else turn(dy < 0 ? 'fwd' : 'back');
+});
+document.querySelectorAll('#dpad button').forEach(b => b.addEventListener('pointerdown', e => { e.preventDefault(); turn(b.dataset.dir); }));
+$('jumpBtn').addEventListener('pointerdown', e => { e.preventDefault(); jump(); });
+$('restartBtn').addEventListener('click', () => {
+  $('restartBtn').blur(); sfx.click();
+  if (multiplayer.connected) { multiplayer.socket?.close(); remoteSheep.forEach((_, id) => removeRemoteSheep(id)); Object.assign(multiplayer, { socket: null, id: null, code: null, hostId: null, phase: 'offline', players: [], started: false }); showLobby(); }
+  else startGame();
+});
+$('soundBtn').addEventListener('click', () => {
+  $('soundBtn').blur(); muted = !muted;
+  if (master) master.gain.value = muted ? 0 : 1;
+  $('soundWave').style.display = muted ? 'none' : '';
+});
+
+/* ---------- 主循环 ---------- */
+let last = performance.now(), hudTick = 0;
+function loop(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now; elapsed += dt;
+  updateWorld(dt);
+  updateSheep(dt);
+  updateRemoteSheep(dt);
+  sendLocalState(now);
+  updateEffects(dt);
+  updateCamera(dt);
+  if (state === 'playing' && (hudTick += dt) > 0.25) { hudTick = 0; updateHUD(); }
+  renderer.render(scene, camera);
+  requestAnimationFrame(loop);
+}
+
+/* ---------- 启动 ---------- */
+resize();
+buildLevel(0);
+lives = CONFIG.lives; timeLeft = CONFIG.levels[0].timeLimit; updateHUD();
+setTimeout(() => { $('hint').style.opacity = '0'; }, 12000);
+showLobby();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

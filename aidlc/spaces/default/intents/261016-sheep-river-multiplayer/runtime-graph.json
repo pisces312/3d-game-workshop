@@ -1,0 +1,17 @@
+{
+  "intentId": "261016-sheep-river-multiplayer",
+  "profile": "MVP",
+  "phases": [
+    {"name": "initialization", "status": "reconstructed"},
+    {"name": "ideation", "status": "complete"},
+    {"name": "inception", "status": "complete"},
+    {"name": "construction", "status": "implemented"},
+    {"name": "verification", "status": "partially-complete"},
+    {"name": "operation", "status": "skipped"}
+  ],
+  "gates": [
+    {"after": "ideation", "decision": "pending-human-approval"},
+    {"after": "inception", "decision": "pending-human-approval"},
+    {"after": "verification", "decision": "pending-manual-multiplayer-acceptance"}
+  ]
+}
