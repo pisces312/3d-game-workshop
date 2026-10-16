@@ -10,6 +10,7 @@ import {
 } from '../systems/CollisionSystem.js';
 import { difficultyFor } from '../systems/DifficultySystem.js';
 import { SpawnSystem } from '../systems/SpawnSystem.js';
+import { isPerfect, nextPerfectStreak } from '../systems/VisualFx.js';
 
 const NO_INPUT = Object.freeze({ axis: 0, dragAngle: 0 });
 
@@ -77,6 +78,7 @@ export class Game {
     this.time = 0;
     this.difficulty = difficultyFor(0);
     this.twist = false;
+    this.perfectStreak = 0; // visual-only derived value (FR28); never affects score
     this._spawner.reset();
     this._spawner.fillInitial(this.theta, this.difficulty, this.rng);
   }
@@ -131,7 +133,9 @@ export class Game {
       o.checked = true;
       if (passesGap(this.theta, o.gapCenter, o.gapSize, this.halfWidth)) {
         this.score += 1;
-        this._emit('pass', { obstacle: o, score: this.score });
+        const perfect = isPerfect(this.theta, o.gapCenter, o.gapSize);
+        this.perfectStreak = nextPerfectStreak(this.perfectStreak, perfect);
+        this._emit('pass', { obstacle: o, score: this.score, perfect, perfectStreak: this.perfectStreak });
       } else {
         this._transition(State.GAME_OVER);
         this._emit('hit', { obstacle: o, score: this.score });
@@ -170,6 +174,7 @@ export class Game {
       distance: this.distance,
       time: this.time,
       twist: this.twist,
+      perfectStreak: this.perfectStreak,
       difficulty: { ...this.difficulty },
       obstacles: this.obstacles.map((o) => ({
         id: o.id,

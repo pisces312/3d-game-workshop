@@ -115,3 +115,20 @@
 **失败项**：无。
 
 **未验证项**：浏览器内的视觉检查（吉祥物外观与正立朝向、眨眼/天线动画、服务弹出动画、Region 提示与扭曲提示叠加观感、整体配色、手机横竖屏布局）——由技术负责人在浏览器中验证。
+
+## 迭代 3 — 视觉升级
+
+**完成定义**：隧道发光内壁与空间尘埃（FR24）；加厚立体障碍 + 同弧长高亮环，视觉缺口 = 判定缺口（FR25）；动态 FOV、速度线、穿越镜头冲击（FR26）；菜单态镜头环绕与放大的 Bolt 小橙、毛玻璃透视面板、3D 标题、呼吸按钮（FR27）；得分弹跳、PERFECT xN、服务名 3D 飞入（FR28）；撞击强震、碎片、色差闪屏与画面抖动（FR29）；按设备启用 Bloom、`?bloom=on|off`、慢帧自动关闭一次（FR30）；不新增逐帧分配（NFR8）；视觉不修改 Game 状态（NFR9）；原有 87 个测试保持通过、构建成功（AC26）。
+
+**实现文件**：新增 `src/systems/VisualFx.js`、`src/core/PostFx.js`、`src/entities/SpeedLines.js`、`tests/visual.test.js`；修改 `src/core/Game.js`（仅在 `pass` 事件附带 `perfect` / `perfectStreak`，`reset()` 归零，快照多一个 `perfectStreak` 字段）、`src/core/Renderer.js`、`src/entities/Tunnel.js`、`Obstacle.js`、`Particles.js`、`src/main.js`、`src/ui/UIManager.js`、`index.html`、`src/styles/main.css`、`tests/ui.test.js`、`README.md`。碰撞、计分、难度、输入、计时与缩放语义未改动。
+
+**运行的检查及结果**：
+- `npx vitest run tests/visual.test.js tests/ui.test.js`：2 个文件，33 个测试全部通过（visual 18、ui 15）。
+- `npm run test`：10 个测试文件，108 个测试全部通过（原有 87 + 新增 21：visual.test.js 18 个，ui.test.js 3 个）。
+- `npm run build`：构建成功，`dist/assets/index-*.js 532.49 kB │ gzip: 137.30 kB`（仍只有 Three.js 包体 >500 kB 的既有提示）。
+
+**通过项**：T16 主环与高亮环 `arc` = 2π − gapSize、`rotation.z` = gapCenter + gapSize/2（模 2π），主环管半径 0.42 ≤ 0.45 且 3 + 0.42 < 3.9，未用环全部隐藏；T17 Perfect 边界 ±gapSize/4、跨 0/2π 接缝（gapCenter 0.02, θ = 2π − 0.02）、非法输入、Game 中连击 1→2→非 Perfect 归零、重开归零，得分仍逐次 +1；T18 动态 FOV 单调、最多 +8°、不超过 MAX_VFOV、Renderer 在 resize 基准 FOV 上叠加并在冲击后回落；T19 Bloom 参数矩阵、Governor 只触发一次、短暂尖峰不触发、注入的 GL 渲染器从不构建 PostFx；T20 READY 环绕、PLAYING 冲击/震动/碎片、Bloom 自动关闭期间 `game.snapshot()` 完全不变；UI：PERFECT / PERFECT x3、得分弹跳 class 只在分数变化时重新触发、撞击抖动 class 300 ms 后移除。
+
+**失败项**：无。
+
+**未验证项**：浏览器内的全部视觉效果（内壁光带、尘埃、速度线、FOV 冲击、菜单环绕、毛玻璃/3D 标题/按钮动画、PERFECT 与色差闪屏观感）、Bloom 实际画面与 Shader 在真机 GPU 上的编译、桌面与手机帧率、竖屏 375×812 / 横屏 812×375 的 HUD 可读性——由技术负责人在浏览器中验证。

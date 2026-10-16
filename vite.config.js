@@ -11,6 +11,8 @@ export default defineConfig({
   },
   preview: {
     port: 4173,
+    // Allow temporary Cloudflare Quick Tunnel hostnames (phone / external testing).
+    allowedHosts: ['.trycloudflare.com'],
   },
   build: {
     outDir: 'dist',

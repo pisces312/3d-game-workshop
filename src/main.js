@@ -12,6 +12,7 @@ import { UIManager } from './ui/UIManager.js';
 import { Sfx } from './audio/Sfx.js';
 import { BestScore } from './storage/BestScore.js';
 import { OBSTACLE_COLORS } from './entities/Obstacle.js';
+import { shouldEnableBloom } from './systems/VisualFx.js';
 import { PALETTE, REGIONS, serviceForScore, regionForScore, regionChanged } from './theme.js';
 
 const container = document.getElementById('app');
@@ -25,7 +26,9 @@ function showFatal(message, err) {
 
 let renderer;
 try {
-  renderer = new Renderer({ container });
+  const isTouch =
+    (window.matchMedia?.('(pointer: coarse)').matches ?? false) || (navigator.maxTouchPoints || 0) > 0;
+  renderer = new Renderer({ container, bloom: shouldEnableBloom({ search: window.location.search, isTouch }) });
 } catch (err) {
   showFatal('无法初始化 WebGL，请使用较新的 Chrome / Safari / Edge 浏览器打开。', err);
   throw err;
@@ -126,8 +129,10 @@ resetRegion();
 
 // ---- game events -> feedback -------------------------------------------------------------
 const tmpPos = { x: 0, y: 0, z: 0 };
-game.on('pass', ({ obstacle }) => {
+game.on('pass', ({ obstacle, perfect, perfectStreak }) => {
   sfx.pass();
+  renderer.impact();
+  if (perfect) ui.perfect(perfectStreak);
   const p = game.playerPosition(tmpPos);
   renderer.burst(p.x, p.y, p.z, obstacle.kind === 'rotating' ? OBSTACLE_COLORS.rotating : PALETTE.orange);
   const score = game.score;
@@ -142,6 +147,8 @@ game.on('pass', ({ obstacle }) => {
 game.on('hit', ({ score }) => {
   sfx.hit();
   renderer.shake();
+  const p = game.playerPosition(tmpPos);
+  renderer.shatter(p.x, p.y, p.z);
   ui.flash();
   const result = bestScore.submit(score);
   ui.setGameOverData({ score, best: result.best, isNew: result.isNew, region: regionForScore(score) });
@@ -193,7 +200,7 @@ function updateFps(frameDt) {
   const ms = renderer.averageFrameMs;
   const fps = ms > 0 ? (1000 / ms).toFixed(0) : '–';
   const ratio = Math.min(window.devicePixelRatio || 1, renderer.dprCap).toFixed(2);
-  fpsEl.textContent = `FPS ${fps} · ${ms.toFixed(1)} ms · DPR ${ratio}${renderer.degraded ? ' (降级)' : ''}`;
+  fpsEl.textContent = `FPS ${fps} · ${ms.toFixed(1)} ms · DPR ${ratio}${renderer.degraded ? ' (降级)' : ''} · Bloom ${renderer.bloomEnabled ? 'on' : 'off'}`;
 }
 
 // ---- main loop -------------------------------------------------------------------------

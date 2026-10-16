@@ -127,6 +127,20 @@ AI-DLC Operation 阶段的部署流水线、部署执行、可观测性配置三
 | AC19 回归：全部测试与构建 | PASS | `npm run test` 87/87，`npm run build` 成功 |
 | 手机上的 AWS 主题观感 | NOT TESTED | 需在真机查看 |
 
+## 9.6 迭代 3：视觉升级 + 幽灵巫师 Boo（流程记录 261016-visual-upgrade）
+
+| 验收项 | 结果 | 测试方式 |
+|---|---|---|
+| AC20 立体障碍弧长与缺口一致 | PASS | T16 |
+| AC21 Perfect 判定与连击 | PASS | T17 |
+| AC22 动态 FOV 上限 | PASS | T18 |
+| AC23 Bloom 启用决策与自动关闭 | PASS | T19 + 浏览器：桌面 Bloom on，触屏视口 Bloom off |
+| AC24 视觉层不改世界状态 | PASS | T20 |
+| AC25 新视觉在浏览器中正常、控制台无错误 | PASS | 截图（桌面、375×812、812×375）+ 主角特写渲染 |
+| AC26 回归：全部测试与构建 | PASS | `npm run test` 108/108，`npm run build` 成功 |
+| FR20 修订：主角幽灵巫师 Boo，宽度不超过碰撞半径 | PASS | T13 + 特写渲染 |
+| 真机帧率与 Bloom 观感 | NOT TESTED | 需在真机查看 |
+
 ## 10. 总结
 
 - 自动化：74 / 74 PASS，构建 PASS，依赖漏洞 0。

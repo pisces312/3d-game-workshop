@@ -32,7 +32,7 @@ class FakeElement extends EventTarget {
 const IDS = [
   'score', 'hud-best', 'ready-best', 'btn-pause', 'btn-mute', 'overlay-ready', 'overlay-paused',
   'overlay-over', 'btn-start', 'btn-resume', 'btn-restart-paused', 'btn-restart', 'final-score',
-  'over-best', 'new-badge', 'flash', 'toast', 'service-pop', 'hud-region', 'over-region',
+  'over-best', 'new-badge', 'flash', 'toast', 'service-pop', 'hud-region', 'over-region', 'perfect',
 ];
 
 function fakeDocument() {
@@ -148,9 +148,48 @@ describe('UIManager', () => {
     const { readFileSync } = await import('node:fs');
     const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
     expect(html).toContain('AWS Edition · Built with AI-DLC');
-    expect(html).toContain('Bolt 小橙');
+    expect(html).toContain('幽灵巫师 Boo');
     expect(html).toContain('Built with AI-DLC · 可部署到 Amazon S3 + CloudFront');
-    for (const id of ['service-pop', 'hud-region', 'over-region']) expect(html).toContain(`id="${id}"`);
+    for (const id of ['service-pop', 'hud-region', 'over-region', 'perfect']) expect(html).toContain(`id="${id}"`);
+  });
+
+  it('perfect shows PERFECT for streak 1 and PERFECT x3 for streak 3, then hides', () => {
+    ui.perfect(1);
+    expect(doc.nodes.perfect.textContent).toBe('PERFECT');
+    expect(doc.nodes.perfect.classList.contains('is-active')).toBe(true);
+    ui.perfect(3);
+    expect(doc.nodes.perfect.textContent).toBe('PERFECT x3');
+    ui.perfect(-2); // invalid streak falls back to a plain PERFECT
+    expect(doc.nodes.perfect.textContent).toBe('PERFECT');
+    vi.advanceTimersByTime(1000);
+    expect(doc.nodes.perfect.classList.contains('is-active')).toBe(false);
+  });
+
+  it('score bump class is retriggered on every score change only', () => {
+    const score = doc.nodes.score;
+    const log = [];
+    const { add, remove } = score.classList;
+    score.classList.add = (c) => (log.push('+' + c), add(c));
+    score.classList.remove = (c) => (log.push('-' + c), remove(c));
+    ui.sync({ state: 'PLAYING', score: 0 });
+    expect(score.classList.contains('bump')).toBe(false); // no bump for the initial 0
+    ui.sync({ state: 'PLAYING', score: 1 });
+    expect(score.classList.contains('bump')).toBe(true);
+    ui.sync({ state: 'PLAYING', score: 1 }); // unchanged -> no retrigger
+    ui.sync({ state: 'PLAYING', score: 2 });
+    expect(log).toEqual(['-bump', '+bump', '-bump', '+bump']);
+  });
+
+  it('flash also adds a short hit-shake class to the body when available', () => {
+    const body = new FakeElement();
+    const d = fakeDocument();
+    d.body = body;
+    const u = new UIManager({ root: d });
+    u.flash();
+    expect(body.classList.contains('is-hit')).toBe(true);
+    vi.advanceTimersByTime(350);
+    expect(body.classList.contains('is-hit')).toBe(false);
+    expect(() => ui.flash()).not.toThrow(); // no body: still fine
   });
 
   it('fails fast when index.html is missing an element', () => {

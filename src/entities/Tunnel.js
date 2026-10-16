@@ -58,6 +58,64 @@ function buildStarGeometry(rng = Math.random) {
   return geo;
 }
 
+// ---- glowing inner wall (FR24) -----------------------------------------------------------
+const WALL_NEAR = 14;
+const WALL_FAR = -150;
+const WALL_LEN = WALL_NEAR - WALL_FAR;
+const DUST_COUNT = 260;
+const DUST_NEAR = 9;
+const DUST_FAR = -150;
+
+const WALL_VERT = /* glsl */ `
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+const WALL_FRAG = /* glsl */ `
+  uniform float uTime;
+  uniform float uScroll;
+  uniform float uTwist;
+  uniform float uSpeed;
+  uniform vec3 uColor;
+  uniform vec3 uTwistColor;
+  varying vec2 vUv;
+  void main() {
+    float z = vUv.y * ${WALL_LEN.toFixed(1)};          // along the tunnel (world units)
+    float a = vUv.x * 6.2831853;                        // around the tunnel
+    // soft flowing bands that travel toward the camera
+    float bands = 0.5 + 0.5 * sin((z - uScroll) * 0.55 + uTwist * a * 1.5);
+    bands = pow(bands, 6.0);
+    // faint hex/grid shimmer
+    vec2 g = vec2(a * 4.0, (z - uScroll) * 0.6);
+    vec2 h = abs(fract(g + vec2(0.5 * floor(g.y), 0.0)) - 0.5);
+    float grid = smoothstep(0.46, 0.5, max(h.x, h.y));
+    float shimmer = 0.5 + 0.5 * sin(uTime * 2.0 + z * 0.3 + a * 3.0);
+    // fade far away and very close to the camera
+    float fade = smoothstep(0.0, 0.35, vUv.y) * (1.0 - smoothstep(0.93, 1.0, vUv.y));
+    float speedK = clamp((uSpeed - 14.0) / 20.0, 0.0, 1.0);
+    vec3 col = mix(uColor, uTwistColor, uTwist);
+    float alpha = (bands * (0.16 + 0.12 * speedK) + grid * shimmer * 0.06) * fade;
+    gl_FragColor = vec4(col * (0.8 + bands), alpha);
+  }
+`;
+
+function buildDust(rng = Math.random) {
+  const pos = new Float32Array(DUST_COUNT * 3);
+  for (let i = 0; i < DUST_COUNT; i++) {
+    const a = rng() * TAU;
+    const r = 0.6 + rng() * 3.0;
+    pos[i * 3] = r * Math.cos(a);
+    pos[i * 3 + 1] = r * Math.sin(a);
+    pos[i * 3 + 2] = DUST_FAR + rng() * (DUST_NEAR - DUST_FAR);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  return geo;
+}
+
 export class Tunnel {
   constructor(config = CONFIG) {
     this.config = config;
@@ -85,7 +143,54 @@ export class Tunnel {
     this.stars.frustumCulled = false;
     this.group.add(this.stars);
 
+    this.wallUniforms = {
+      uTime: { value: 0 },
+      uScroll: { value: 0 },
+      uTwist: { value: 0 },
+      uSpeed: { value: 14 },
+      uColor: { value: new THREE.Color(PALETTE.blue) },
+      uTwistColor: { value: TWIST_COLOR.clone() },
+    };
+    const wallGeo = new THREE.CylinderGeometry(
+      config.TUNNEL_RADIUS + 0.05,
+      config.TUNNEL_RADIUS + 0.05,
+      WALL_LEN,
+      48,
+      1,
+      true,
+    );
+    // Cylinder axis y -> tunnel axis z; uv.y = 1 at the near (camera) end.
+    wallGeo.rotateX(Math.PI / 2);
+    wallGeo.translate(0, 0, (WALL_NEAR + WALL_FAR) / 2);
+    this.wallMaterial = new THREE.ShaderMaterial({
+      uniforms: this.wallUniforms,
+      vertexShader: WALL_VERT,
+      fragmentShader: WALL_FRAG,
+      side: THREE.BackSide,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    this.wall = new THREE.Mesh(wallGeo, this.wallMaterial);
+    this.wall.frustumCulled = false;
+    this.wall.renderOrder = -1;
+    this.group.add(this.wall);
+
+    this.dustMaterial = new THREE.PointsMaterial({
+      color: 0xcfe8ff,
+      size: 0.07,
+      sizeAttenuation: true,
+      transparent: true,
+      opacity: 0.7,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    this.dust = new THREE.Points(buildDust(), this.dustMaterial);
+    this.dust.frustumCulled = false;
+    this.group.add(this.dust);
+
     this._twistMix = 0;
+    this._time = 0;
   }
 
   /**
@@ -93,11 +198,30 @@ export class Tunnel {
    * @param {number} dt frame delta (s)
    * @param {boolean} twist whether the space-twist phase is active
    */
-  update(scroll, dt, twist) {
+  update(scroll, dt, twist, speed = 14) {
     this.lines.position.z = scroll % RING_SPACING;
     this.stars.rotation.z += dt * 0.03;
     const target = twist ? 1 : 0;
     this._twistMix += (target - this._twistMix) * (1 - Math.exp(-2.5 * dt));
     this.material.color.copy(BASE_COLOR).lerp(TWIST_COLOR, this._twistMix);
+
+    this._time += dt;
+    const u = this.wallUniforms;
+    u.uTime.value = this._time;
+    u.uScroll.value = scroll;
+    u.uTwist.value = this._twistMix;
+    u.uSpeed.value = speed;
+
+    // Space dust drifts toward the camera (in-place, zero allocation).
+    if (dt > 0) {
+      const p = this.dust.geometry.attributes.position;
+      const arr = p.array;
+      const dz = (6 + speed * 0.8) * dt;
+      for (let i = 2; i < arr.length; i += 3) {
+        arr[i] += dz;
+        if (arr[i] > DUST_NEAR) arr[i] -= DUST_NEAR - DUST_FAR;
+      }
+      p.needsUpdate = true;
+    }
   }
 }

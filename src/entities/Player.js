@@ -1,4 +1,4 @@
-// Player view: the "Bolt 小橙" mascot + short fading orange trail (FR1, FR15, FR20).
+// Player view: the "幽灵巫师 Boo" mascot + short fading orange trail (FR1, FR15, FR20).
 // Reads positions, never game state.
 import * as THREE from 'three';
 import { CONFIG } from '../config.js';

@@ -55,6 +55,34 @@ export class Particles {
     this._alive = this.capacity;
   }
 
+  /** Hit "shatter" (FR29): ≤ 40 fast orange/white shards flying outward in 3D. */
+  shatter(x, y, z, count = 40) {
+    const n = Math.min(count, 40, this.capacity);
+    const orange = this._tmp.set(PALETTE.orange);
+    const or = orange.r;
+    const og = orange.g;
+    const ob = orange.b;
+    for (let k = 0; k < n; k++) {
+      const i = this._next;
+      this._next = (this._next + 1) % this.capacity;
+      const a = Math.random() * Math.PI * 2;
+      const b = Math.acos(2 * Math.random() - 1);
+      const s = 6 + Math.random() * 8;
+      this._pos[i * 3] = x;
+      this._pos[i * 3 + 1] = y;
+      this._pos[i * 3 + 2] = z;
+      this._vel[i * 3] = Math.sin(b) * Math.cos(a) * s;
+      this._vel[i * 3 + 1] = Math.sin(b) * Math.sin(a) * s;
+      this._vel[i * 3 + 2] = Math.cos(b) * s;
+      const white = k % 3 === 0;
+      this._base[i * 3] = white ? 1 : or;
+      this._base[i * 3 + 1] = white ? 1 : og;
+      this._base[i * 3 + 2] = white ? 1 : ob;
+      this._life[i] = LIFE;
+    }
+    this._alive = this.capacity;
+  }
+
   update(dt) {
     if (this._alive === 0) return;
     let alive = 0;

@@ -3,6 +3,8 @@
 
 const GAME_OVER_PANEL_DELAY_MS = 450;
 const TOAST_MS = 1400;
+const PERFECT_MS = 900;
+const HIT_SHAKE_MS = 300;
 
 function noop() {}
 
@@ -37,6 +39,7 @@ export class UIManager {
       servicePop: $('service-pop'),
       hudRegion: $('hud-region'),
       overRegion: $('over-region'),
+      perfect: $('perfect'),
     };
     this.cb = {
       onStart: callbacks.onStart || noop,
@@ -53,6 +56,9 @@ export class UIManager {
     this._restartReady = false;
     this._overTimer = null;
     this._toastTimer = null;
+    this._perfectTimer = null;
+    this._shakeTimer = null;
+    this._body = root.body ?? null;
     this._bind();
   }
 
@@ -85,6 +91,7 @@ export class UIManager {
     if (game.score !== this._lastScore) {
       this._lastScore = game.score;
       this.el.score.textContent = String(game.score);
+      if (game.score > 0) this._retrigger(this.el.score, 'bump');
     }
     if (game.state !== this._lastState) {
       this.showState(game.state);
@@ -117,6 +124,23 @@ export class UIManager {
     p.classList.remove('is-active');
     void p.offsetWidth; // restart the CSS animation
     p.classList.add('is-active');
+  }
+
+  /** Remove + reflow + add: restarts a CSS animation class. */
+  _retrigger(node, cls) {
+    node.classList.remove(cls);
+    void node.offsetWidth;
+    node.classList.add(cls);
+  }
+
+  /** "PERFECT" / "PERFECT xN" feedback for a centred pass (FR28). */
+  perfect(streak = 1) {
+    const n = Number.isInteger(streak) && streak > 0 ? streak : 1;
+    const p = this.el.perfect;
+    p.textContent = n >= 2 ? `PERFECT x${n}` : 'PERFECT';
+    this._retrigger(p, 'is-active');
+    clearTimeout(this._perfectTimer);
+    this._perfectTimer = setTimeout(() => p.classList.remove('is-active'), PERFECT_MS);
   }
 
   setMuted(muted) {
@@ -162,6 +186,13 @@ export class UIManager {
     f.classList.remove('is-active');
     void f.offsetWidth; // restart the CSS animation
     f.classList.add('is-active');
+    // Short whole-screen shake (FR29); visual only.
+    const body = this._body;
+    if (body?.classList) {
+      this._retrigger(body, 'is-hit');
+      clearTimeout(this._shakeTimer);
+      this._shakeTimer = setTimeout(() => body.classList.remove('is-hit'), HIT_SHAKE_MS);
+    }
   }
 
   toast(text) {

@@ -69,7 +69,7 @@ describe('T13 mascot', () => {
     mascot.update({ x: 1, y: 2, z: 0 }, 0.5, 1.23);
     expect(mascot.group.position.toArray()).toEqual([1, 2, 0]);
     expect(mascot.group.rotation.z).toBeCloseTo(0.5 + Math.PI / 2, 12);
-    expect(mascot.antenna.position.y).toBeGreaterThan(CONFIG.BALL_RADIUS * 0.5); // points to axis
+    expect(mascot.hat.position.y).toBeGreaterThan(CONFIG.BALL_RADIUS * 0.5); // hat points to axis
   });
 });
 

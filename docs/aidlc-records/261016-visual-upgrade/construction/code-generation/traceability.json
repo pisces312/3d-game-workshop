@@ -1,0 +1,15 @@
+{
+  "stage": "code-generation",
+  "upstream_ids": ["FR24", "FR25", "FR26", "FR27", "FR28", "FR29", "FR30", "NFR8", "NFR9"],
+  "coverage": [
+    {"id": "FR24", "status": "OK", "target": "src/entities/Tunnel.js"},
+    {"id": "FR25", "status": "OK", "target": "src/entities/Obstacle.js"},
+    {"id": "FR26", "status": "OK", "target": "src/entities/SpeedLines.js"},
+    {"id": "FR27", "status": "OK", "target": "src/core/Renderer.js"},
+    {"id": "FR28", "status": "OK", "target": "src/systems/VisualFx.js"},
+    {"id": "FR29", "status": "OK", "target": "src/entities/Particles.js"},
+    {"id": "FR30", "status": "OK", "target": "src/core/PostFx.js"},
+    {"id": "NFR8", "status": "OK", "target": "tests/visual.test.js"},
+    {"id": "NFR9", "status": "OK", "target": "tests/visual.test.js"}
+  ]
+}
