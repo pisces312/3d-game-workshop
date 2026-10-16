@@ -1,0 +1,12 @@
+{
+  "stage": "code-generation",
+  "upstream_ids": ["FR19", "FR20", "FR21", "FR22", "FR23", "NFR7"],
+  "coverage": [
+    {"id": "FR19", "status": "OK", "target": "src/theme.js"},
+    {"id": "FR20", "status": "OK", "target": "src/entities/Mascot.js"},
+    {"id": "FR21", "status": "OK", "target": "src/ui/UIManager.js"},
+    {"id": "FR22", "status": "OK", "target": "src/theme.js"},
+    {"id": "FR23", "status": "OK", "target": "index.html"},
+    {"id": "NFR7", "status": "OK", "target": "tests/theme.test.js"}
+  ]
+}

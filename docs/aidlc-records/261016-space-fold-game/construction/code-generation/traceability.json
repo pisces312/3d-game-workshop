@@ -1,0 +1,30 @@
+{
+  "stage": "code-generation",
+  "upstream_ids": ["FR1","FR2","FR3","FR4","FR5","FR6","FR7","FR8","FR9","FR10","FR11","FR12","FR13","FR14","FR15","FR16","FR17","FR18","NFR1","NFR2","NFR3","NFR4","NFR5","NFR6"],
+  "coverage": [
+    {"id":"FR1","status":"OK","target":"src/core/Renderer.js"},
+    {"id":"FR2","status":"OK","target":"src/core/Game.js"},
+    {"id":"FR3","status":"OK","target":"src/systems/SpawnSystem.js"},
+    {"id":"FR4","status":"OK","target":"src/systems/CollisionSystem.js"},
+    {"id":"FR5","status":"OK","target":"src/core/Game.js"},
+    {"id":"FR6","status":"OK","target":"src/systems/DifficultySystem.js"},
+    {"id":"FR7","status":"OK","target":"src/core/GameState.js"},
+    {"id":"FR8","status":"OK","target":"tests/gameState.test.js"},
+    {"id":"FR9","status":"OK","target":"src/core/InputManager.js"},
+    {"id":"FR10","status":"OK","target":"src/core/InputManager.js"},
+    {"id":"FR11","status":"OK","target":"tests/resize.test.js"},
+    {"id":"FR12","status":"OK","target":"src/core/FixedStepper.js"},
+    {"id":"FR13","status":"OK","target":"src/storage/BestScore.js"},
+    {"id":"FR14","status":"OK","target":"src/systems/SpawnSystem.js"},
+    {"id":"FR15","status":"OK","target":"src/entities/Particles.js"},
+    {"id":"FR16","status":"OK","target":"src/audio/Sfx.js"},
+    {"id":"FR17","status":"OK","target":"src/ui/UIManager.js"},
+    {"id":"FR18","status":"Deferred","target":"P2，3 小时时间盒内按计划砍掉"},
+    {"id":"NFR1","status":"OK","target":"src/core/FixedStepper.js"},
+    {"id":"NFR2","status":"OK","target":"src/main.js"},
+    {"id":"NFR3","status":"OK","target":"vitest.config.js"},
+    {"id":"NFR4","status":"OK","target":"package.json"},
+    {"id":"NFR5","status":"OK","target":"src/styles/main.css"},
+    {"id":"NFR6","status":"OK","target":"src/main.js"}
+  ]
+}

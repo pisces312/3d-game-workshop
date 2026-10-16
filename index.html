@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no"
+    />
+    <meta name="theme-color" content="#0B1320" />
+    <meta name="description" content="空间折叠 Space Fold —— AWS Edition：控制原创吉祥物 Bolt 小橙穿过圆环缺口的 3D 隧道小游戏" />
+    <title>空间折叠 Space Fold</title>
+    <link rel="stylesheet" href="./src/styles/main.css" />
+  </head>
+  <body>
+    <div id="app" data-testid="game-container"></div>
+
+    <div id="hud" class="hud" data-testid="hud">
+      <div class="hud-left">
+        <div class="hud-label">得分</div>
+        <div id="score" class="hud-score" data-testid="hud-score">0</div>
+      </div>
+      <div class="hud-center">
+        <div class="hud-label">最高</div>
+        <div id="hud-best" class="hud-best" data-testid="hud-best">0</div>
+        <div id="hud-region" class="hud-region" data-testid="hud-region">🌐 us-east-1</div>
+      </div>
+      <div class="hud-right">
+        <button id="btn-mute" class="icon-btn" type="button" aria-label="静音" data-testid="hud-mute-button">🔊</button>
+        <button id="btn-pause" class="icon-btn" type="button" aria-label="暂停" data-testid="hud-pause-button">❚❚</button>
+      </div>
+    </div>
+
+    <section id="overlay-ready" class="overlay is-visible" data-testid="overlay-ready" aria-live="polite">
+      <div class="panel">
+        <h1 class="title">空间折叠</h1>
+        <div class="subtitle">SPACE FOLD</div>
+        <div class="edition" data-testid="ready-edition">AWS Edition · Built with AI-DLC</div>
+        <p class="lead">主角 <strong class="mascot-name">Bolt 小橙</strong> 沿隧道圆周移动，对准圆环的缺口穿过去。</p>
+        <p class="hint" data-testid="ready-hint">每穿过一道环获得一个 AWS 服务，每 5 分解锁一个新 Region。</p>
+        <div class="tutorial">
+          <div class="tutorial-col">
+            <div class="tutorial-head">🖥 桌面</div>
+            <ul>
+              <li>按住鼠标左右拖动</li>
+              <li><kbd>A</kbd> <kbd>D</kbd> 或 <kbd>←</kbd> <kbd>→</kbd> 移动</li>
+              <li><kbd>空格</kbd> 开始 / 重开，<kbd>P</kbd> 暂停</li>
+            </ul>
+          </div>
+          <div class="tutorial-col">
+            <div class="tutorial-head">📱 手机</div>
+            <ul>
+              <li>手指左右滑动控制</li>
+              <li>横竖屏随意切换，进度不丢</li>
+            </ul>
+          </div>
+        </div>
+        <button id="btn-start" class="primary-btn" type="button" data-testid="ready-start-button">开始游戏</button>
+        <div class="best-line">最高分 <span id="ready-best" data-testid="ready-best">0</span></div>
+      </div>
+    </section>
+
+    <section id="overlay-paused" class="overlay" data-testid="overlay-paused" aria-live="polite">
+      <div class="panel">
+        <h2 class="title small">已暂停</h2>
+        <div class="btn-row">
+          <button id="btn-resume" class="primary-btn" type="button" data-testid="paused-resume-button">继续</button>
+          <button id="btn-restart-paused" class="secondary-btn" type="button" data-testid="paused-restart-button">重新开始</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="overlay-over" class="overlay" data-testid="overlay-over" aria-live="polite">
+      <div class="panel">
+        <h2 class="title small">撞上了！</h2>
+        <div class="final-label">最终得分</div>
+        <div class="final-score"><span id="final-score" data-testid="over-final-score">0</span><span id="new-badge" class="new-badge" data-testid="over-new-badge" hidden>NEW</span></div>
+        <div class="best-line">最高分 <span id="over-best" data-testid="over-best">0</span></div>
+        <div class="best-line">到达 Region <span id="over-region" class="over-region" data-testid="over-region">us-east-1</span></div>
+        <button id="btn-restart" class="primary-btn" type="button" data-testid="over-restart-button" disabled>再来一局</button>
+        <div class="credit" data-testid="over-credit">Built with AI-DLC · 可部署到 Amazon S3 + CloudFront</div>
+      </div>
+    </section>
+
+    <div id="flash" class="flash" aria-hidden="true"></div>
+    <div id="toast" class="toast" data-testid="toast" aria-live="polite"></div>
+    <div id="service-pop" class="service-pop" data-testid="service-pop" aria-hidden="true"></div>
+    <div id="fps" class="fps" data-testid="debug-fps" hidden></div>
+    <div id="fatal" class="fatal" data-testid="fatal-error" hidden></div>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
