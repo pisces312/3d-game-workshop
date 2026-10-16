@@ -124,6 +124,32 @@
   .touchOnly { display: none; } .deskOnly { display: inline; }
   @media (pointer: coarse) { .touchOnly { display: inline; } .deskOnly { display: none; } }
 
+  /* ---------- 联机 ---------- */
+  .mp { margin: 26px auto 0; max-width: 300px; border-top: 1px solid var(--line); padding-top: 16px; }
+  .mpRow { display: flex; gap: 8px; justify-content: center; margin-top: 12px; }
+  .ghost {
+    background: rgba(255,255,255,.08); color: var(--text); border: 1px solid var(--line); border-radius: 999px; cursor: pointer;
+    padding: 10px 18px; font-size: 14px; letter-spacing: .12em; white-space: nowrap;
+  }
+  .ghost:active { background: rgba(255,255,255,.2); }
+  #mpCodeInput {
+    width: 120px; padding: 10px 12px; border-radius: 999px; border: 1px solid var(--line); background: rgba(0,0,0,.25);
+    color: var(--text); font-size: 16px; letter-spacing: .3em; text-align: center; text-transform: uppercase;
+    -webkit-user-select: text; user-select: text; touch-action: manipulation;
+  }
+  .mpRoom { margin-top: 12px; color: var(--muted); font-size: 13px; letter-spacing: .1em; }
+  .mpRoom b { display: block; color: var(--accent); font-size: 34px; letter-spacing: .3em; text-indent: .3em; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .mpStatus { min-height: 20px; margin-top: 10px; font-size: 13px; color: var(--muted); line-height: 1.6; }
+  .mpStatus.err { color: #f0a08a; }
+  .link { margin-top: 8px; background: none; border: none; color: var(--muted); text-decoration: underline; font-size: 13px; cursor: pointer; }
+  .mpHide { display: none !important; }
+  #mpBadge {
+    position: fixed; z-index: 2; left: 50%; transform: translateX(-50%); top: calc(env(safe-area-inset-top) + 92px); pointer-events: none;
+    font-size: 12px; letter-spacing: .1em; color: var(--text); background: var(--glass); border: 1px solid var(--line);
+    border-radius: 999px; padding: 6px 14px; white-space: nowrap; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  }
+  #mpBadge i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #e89aa8; margin-right: 6px; vertical-align: 0; }
+
   @media (max-width: 480px) {
     .bar { width: 70px; } #lvName { font-size: 15px; }
     .right { gap: 10px; } .panel { padding: 8px 10px; } .iconBtn { width: 30px; height: 30px; }
@@ -168,9 +194,13 @@
 </div>
 
 <div id="toast"></div>
+<div id="mpBadge" class="mpHide" data-testid="mp-badge"></div>
 <div id="overlay"><div class="sheet" id="sheet"></div></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<!-- 联机：PeerJS（WebRTC 点对点，信令用 PeerJS 免费云服务）+ 本地纯逻辑模块。加载失败时单人模式不受影响 -->
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="multiplayer.js"></script>
 <script>
 /* =====================================================================
  *  配置区：改这里就能调整关卡和数值，不需要改下面的代码
@@ -206,7 +236,8 @@ const CONFIG = {
  *  以下为游戏代码
  * ===================================================================== */
 const $ = id => document.getElementById(id);
-const rand = (a, b) => a + Math.random() * (b - a);
+let rng = Math.random;      // 关卡生成用的随机源：单人用 Math.random，联机时换成种子随机数（两台手机生成同一张地图）
+const rand = (a, b) => a + rng() * (b - a);
 const pick = v => Array.isArray(v) ? rand(v[0], v[1]) : v;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -507,10 +538,10 @@ function grassTufts(zMin, zMax, count, list) {
 function reeds(z, half, reedList, tailList) {
   for (let x = -24; x < 24; x += rand(0.08, 0.3)) {
     if (Math.abs(x) < half + 1.2) continue;
-    if (Math.random() < 0.35) continue;
+    if (rng() < 0.35) continue;
     const h = rand(0.6, 1.3), zz = z + rand(-0.3, 0.25), rx = rand(-0.12, 0.12), rz = rand(-0.12, 0.12);
     reedList.push({ x, y: WATER_Y, z: zz, sx: 1, sy: h, sz: 1, rx, rz, c: [0x5d6e3a, 0x6f7a44, 0x7f8550, 0x4f6233][Math.floor(rand(0, 4))] });
-    if (Math.random() < 0.3) tailList.push({ x: x - Math.sin(rz) * h * 0.95, y: WATER_Y + h * 0.95, z: zz + Math.sin(rx) * h * 0.95, sx: 1, sy: 1, sz: 1, rx, rz, c: 0x5a3d26 });
+    if (rng() < 0.3) tailList.push({ x: x - Math.sin(rz) * h * 0.95, y: WATER_Y + h * 0.95, z: zz + Math.sin(rx) * h * 0.95, sx: 1, sy: 1, sz: 1, rx, rz, c: 0x5a3d26 });
   }
 }
 function addTree(x, z, s) {
@@ -586,10 +617,10 @@ function makeRaft(len) {
 }
 
 /* ---------- 小羊 ---------- */
-function makeSheep() {
+function makeSheep(woolHex = 0xebe5d6, shadeHex = 0xd8cfbc) {
   const root = new THREE.Group(), body = new THREE.Group(); root.add(body);
-  const wool = new THREE.MeshStandardMaterial({ color: lin(0xebe5d6), roughness: 1 });
-  const woolShade = new THREE.MeshStandardMaterial({ color: lin(0xd8cfbc), roughness: 1 });
+  const wool = new THREE.MeshStandardMaterial({ color: lin(woolHex), roughness: 1 });
+  const woolShade = new THREE.MeshStandardMaterial({ color: lin(shadeHex), roughness: 1 });
   const face = new THREE.MeshStandardMaterial({ color: lin(0x2b2623), roughness: 0.7 });
   const hoof = new THREE.MeshStandardMaterial({ color: lin(0x15120f), roughness: 0.5 });
   const eye = new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.1 });
@@ -629,6 +660,14 @@ const sheepObj = makeSheep();
 scene.add(sheepObj.root);
 const sheepShadow = new THREE.Mesh(shadowGeo, shadowMat);
 scene.add(sheepShadow);
+
+// 联机对手：粉色小羊，默认隐藏
+const oppObj = makeSheep(0xe89aa8, 0xc9788a);
+oppObj.root.visible = false;
+scene.add(oppObj.root);
+const oppShadow = new THREE.Mesh(shadowGeo, shadowMat);
+oppShadow.visible = false;
+scene.add(oppShadow);
 
 // 落点指示圈
 const marker = new THREE.Group();
@@ -689,6 +728,12 @@ function applyAtmosphere(name) {
 /* ---------- 搭建关卡 ---------- */
 let rows = [], goalRow = 0;
 function buildLevel(i) {
+  // 联机：用房主下发的种子生成关卡（木筏位置、速度、装饰都一致）；单人保持原来的 Math.random
+  const seeded = mp.active && mp.seed !== null && window.MP;
+  rng = seeded ? window.MP.mulberry32(window.MP.levelSeed(mp.seed, i)) : Math.random;
+  try { buildLevelInner(i); } finally { rng = Math.random; }
+}
+function buildLevelInner(i) {
   if (levelGroup) {
     scene.remove(levelGroup);
     levelGroup.traverse(o => { if (o.geometry && !SHARED_GEOS.includes(o.geometry)) o.geometry.dispose(); });
@@ -725,7 +770,7 @@ function buildLevel(i) {
   // 树木
   for (let k = 0; k < 16; k++) {
     const side = k % 2 ? 1 : -1;
-    const fn = Math.random() < 0.35 ? addPine : addTree;
+    const fn = rng() < 0.35 ? addPine : addTree;
     fn(side * rand(half + 2.5, half + 14), rand(1.5, 12), rand(0.9, 1.5));
     fn(side * rand(half + 1.5, half + 16), farEdge - rand(1.5, 14), rand(1.0, 1.7));
   }
@@ -794,7 +839,7 @@ function toast(msg, sub = '', ms = 1400) {
   clearTimeout(toastTimer); toastTimer = setTimeout(() => $('toast').classList.remove('show'), ms);
 }
 function showOverlay(html, btnText, onClick) {
-  $('sheet').innerHTML = html + `<button class="primary" id="ovBtn">${btnText}</button>`;
+  $('sheet').innerHTML = html + `<button class="primary" id="ovBtn" data-testid="overlay-btn">${btnText}</button>`;
   $('overlay').classList.remove('hidden');
   $('ovBtn').onclick = () => { $('ovBtn').blur(); sfx.click(); $('overlay').classList.add('hidden'); onClick(); };
 }
@@ -868,21 +913,23 @@ function land() {
   }
   if (sheep.row > bestRow) { score += (sheep.row - bestRow) * CONFIG.scorePerRow; bestRow = sheep.row; }
   updateHUD();
-  if (sheep.row === goalRow) { levelClear(); return; }
+  if (sheep.row === goalRow) { if (mp.active) mpFinish(true); else levelClear(); return; }
   if (queued) { queued = false; lastLand = -1; jump(); }
 }
 
 // 落水 / 被冲走
 function fall(msg, sub) {
   if (state !== 'playing') return;
-  state = 'sinking'; stateTimer = 0; lives--;
+  state = 'sinking'; stateTimer = 0;
+  if (!mp.active) lives--;                               // 联机竞速：落水只重生，不扣命
   sheep.jumping = false; sheep.ride = null; sheep.raft = null; queued = false; sheep.sinkFrom = sheep.y;
   spray(sheep.x, WATER_Y, sheep.z, 34, 0xe6f0f2);
   ripple(sheep.x, sheep.z, 0, 1.6); ripple(sheep.x, sheep.z, 0.25, 2.2); ripple(sheep.x, sheep.z, 0.5, 2.8);
   sfx.splash(); toast(msg, sub); updateHUD();
 }
 function timeUp() {
-  state = 'sinking'; stateTimer = 0.6; lives--; queued = false;
+  state = 'sinking'; stateTimer = 0.6; queued = false;
+  if (!mp.active) lives--;
   sheepObj.root.visible = false;
   spray(sheep.x, sheep.y + 0.4, sheep.z, 20, 0xf2eee6, { up: [0.5, 1.5], gravity: -0.5, life: [0.6, 1] });
   sfx.fail(); toast('时间到', 'Time up'); updateHUD();
@@ -1047,6 +1094,11 @@ window.addEventListener('orientationchange', () => setTimeout(resize, 250));
 // 电脑：WASD / 方向键 只转向，空格跳跃
 const TURN_KEYS = { KeyW: 'fwd', ArrowUp: 'fwd', KeyS: 'back', ArrowDown: 'back', KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right' };
 window.addEventListener('keydown', e => {
+  // 正在输入房间码：不要把字母当成转向键；回车 = 加入房间
+  if (e.target && e.target.tagName === 'INPUT') {
+    if (e.code === 'Enter') { e.preventDefault(); $('mpJoinBtn')?.click(); }
+    return;
+  }
   if (e.code === 'Enter' && !$('overlay').classList.contains('hidden')) { e.preventDefault(); $('ovBtn')?.click(); return; }
   if (e.code === 'Space' || TURN_KEYS[e.code]) {
     e.preventDefault();
@@ -1067,12 +1119,237 @@ canvas.addEventListener('pointerup', e => {
 });
 document.querySelectorAll('#dpad button').forEach(b => b.addEventListener('pointerdown', e => { e.preventDefault(); turn(b.dataset.dir); }));
 $('jumpBtn').addEventListener('pointerdown', e => { e.preventDefault(); jump(); });
-$('restartBtn').addEventListener('click', () => { $('restartBtn').blur(); sfx.click(); startGame(); });
+$('restartBtn').addEventListener('click', () => {
+  $('restartBtn').blur(); sfx.click();
+  if (mp.active) { toast('联机对战中', 'Multiplayer'); return; }   // 联机时不能单方面重开
+  startGame();
+});
 $('soundBtn').addEventListener('click', () => {
   $('soundBtn').blur(); muted = !muted;
   if (master) master.gain.value = muted ? 0 : 1;
   $('soundWave').style.display = muted ? 'none' : '';
 });
+
+/* ---------- 联机对战（PeerJS / WebRTC 点对点） ----------
+ * 房主创建房间（peer id = sheepriver-<房间码>），朋友输入房间码加入。
+ * 连上后房主下发随机种子 → 双方生成同一张地图；各自模拟自己的小羊，
+ * 每秒约 15 次把位置发给对方；对方的小羊（粉色）用插值平滑显示。先到对岸者获胜。 */
+const SEND_INTERVAL = 1 / 15;      // 发送频率：约 15 次/秒
+const PEER_TIMEOUT_MS = 6000;      // 这么久收不到对方消息就当作掉线
+const JOIN_TIMEOUT_MS = 15000;
+const mp = { active: false, role: null, peer: null, conn: null, code: null, seed: null, finished: false,
+             sendAcc: 0, lastRecv: 0, levelTime: 0, opp: null, joinTimer: null };
+
+function mpEl(id) { return document.getElementById(id); }
+function mpStatus(text, isError = false) {
+  const el = mpEl('mpStatus');
+  if (el) { el.textContent = text; el.classList.toggle('err', !!isError); }
+  if (isError) console.warn('[联机]', text);
+}
+function mpAvailable() {
+  if (!window.MP) { mpStatus('联机模块 multiplayer.js 加载失败（请用 http 方式打开页面）', true); return false; }
+  if (typeof window.Peer !== 'function') { mpStatus('联机库加载失败：手机需要能访问互联网', true); return false; }
+  return true;
+}
+function peerErrorText(err) {
+  const t = err && err.type;
+  if (t === 'peer-unavailable') return '找不到这个房间：请确认房间码，且房主还停在等待界面';
+  if (t === 'unavailable-id') return '房间码被占用，请再点一次「创建房间」';
+  if (t === 'network' || t === 'server-error' || t === 'socket-error' || t === 'socket-closed') return '连不上联机服务器，请检查网络';
+  if (t === 'browser-incompatible') return '这个浏览器不支持联机（WebRTC）';
+  if (t === 'webrtc') return '点对点连接失败，请确认两台手机连的是同一个 WiFi';
+  return '联机出错：' + ((err && (err.type || err.message)) || '未知错误');
+}
+function mpSend(type, payload) {
+  if (!mp.conn || !mp.conn.open || !window.MP) return;
+  try { mp.conn.send(window.MP.encodeMessage(type, payload)); }
+  catch (e) { console.warn('[联机] 发送失败', e); }
+}
+// 关闭连接、销毁 peer、隐藏对手；可重复调用
+function mpCleanup() {
+  clearTimeout(mp.joinTimer);
+  const { conn, peer } = mp;
+  if (conn && conn.open) mpSend('bye');
+  Object.assign(mp, { active: false, role: null, peer: null, conn: null, code: null, seed: null, finished: false, opp: null, joinTimer: null });
+  try { if (conn) conn.close(); } catch (e) { console.warn('[联机] 关闭连接失败', e); }
+  try { if (peer) peer.destroy(); } catch (e) { console.warn('[联机] 销毁 peer 失败', e); }
+  oppObj.root.visible = false; oppShadow.visible = false;
+  $('mpBadge').classList.add('mpHide');
+  const room = mpEl('mpRoom'), cancel = mpEl('mpCancelBtn');
+  if (room) room.classList.add('mpHide');
+  if (cancel) cancel.classList.add('mpHide');
+}
+function mpBindConn(conn, onOpen) {
+  mp.conn = conn;
+  conn.on('open', () => {
+    if (conn !== mp.conn) return;
+    clearTimeout(mp.joinTimer);
+    mp.lastRecv = performance.now();
+    onOpen();
+  });
+  conn.on('data', raw => {
+    if (conn !== mp.conn) return;
+    const m = window.MP.decodeMessage(raw);
+    if (!m) { console.warn('[联机] 丢弃无效消息', raw); return; }
+    mp.lastRecv = performance.now();
+    mpOnMessage(m);
+  });
+  conn.on('close', () => { if (conn === mp.conn) mpDisconnected('对手已断开'); });
+  conn.on('error', err => { if (conn === mp.conn) mpDisconnected('连接出错：' + ((err && (err.type || err.message)) || '未知')); });
+}
+function mpOnPeerError(peer, err) {
+  if (peer !== mp.peer) return;
+  const text = peerErrorText(err);
+  if (mp.active) { console.warn('[联机]', text, err); return; }   // 比赛中信令断了不影响已建立的连接，靠心跳判断掉线
+  mpCleanup(); mpStatus(text, true);
+}
+
+function mpHost(attempt = 0) {
+  if (!mpAvailable()) return;
+  mpCleanup();
+  const code = window.MP.generateRoomCode();
+  mp.role = 'host'; mp.code = code;
+  mpStatus('正在创建房间…');
+  let peer;
+  try { peer = new Peer(window.MP.peerIdFor(code), { debug: 1 }); }
+  catch (e) { mpCleanup(); mpStatus(peerErrorText(e), true); return; }
+  mp.peer = peer;
+  peer.on('open', () => {
+    if (peer !== mp.peer) return;
+    const room = mpEl('mpRoom'), cancel = mpEl('mpCancelBtn');
+    if (room) { room.classList.remove('mpHide'); mpEl('mpRoomCode').textContent = code; }
+    if (cancel) cancel.classList.remove('mpHide');
+    mpStatus('等待朋友在另一台手机输入房间码…');
+  });
+  peer.on('connection', conn => {
+    if (peer !== mp.peer) return;
+    if (mp.conn) { try { conn.close(); } catch (e) { /* 只允许两人，多余的连接直接关掉 */ } return; }
+    mpBindConn(conn, () => {
+      const seed = window.MP.randomSeed();
+      mpSend('start', { seed, level: 0 });
+      mpStartRace(seed, 0);
+    });
+  });
+  peer.on('error', err => {
+    if (peer === mp.peer && err && err.type === 'unavailable-id' && attempt < 3) { mpHost(attempt + 1); return; }
+    mpOnPeerError(peer, err);
+  });
+}
+
+function mpJoin() {
+  if (!mpAvailable()) return;
+  const input = mpEl('mpCodeInput');
+  const code = window.MP.normalizeRoomCode(input ? input.value : '');
+  if (!code) { mpStatus('房间码是 4 位字母或数字，请检查', true); return; }
+  mpCleanup();
+  mp.role = 'guest'; mp.code = code;
+  mpStatus('正在加入房间 ' + code + '…');
+  const cancel = mpEl('mpCancelBtn'); if (cancel) cancel.classList.remove('mpHide');
+  let peer;
+  try { peer = new Peer({ debug: 1 }); }
+  catch (e) { mpCleanup(); mpStatus(peerErrorText(e), true); return; }
+  mp.peer = peer;
+  peer.on('open', () => {
+    if (peer !== mp.peer) return;
+    let conn;
+    try { conn = peer.connect(window.MP.peerIdFor(code), { reliable: true }); }
+    catch (e) { mpCleanup(); mpStatus(peerErrorText(e), true); return; }
+    mpBindConn(conn, () => { mpSend('hello'); mpStatus('已连接，等待房主开始…'); });
+  });
+  peer.on('error', err => mpOnPeerError(peer, err));
+  mp.joinTimer = setTimeout(() => {
+    if (peer === mp.peer && !mp.active) { mpCleanup(); mpStatus('加入超时：请确认房间码，并且两台手机都能上网', true); }
+  }, JOIN_TIMEOUT_MS);
+}
+
+function mpOnMessage(m) {
+  switch (m.type) {
+    case 'start':
+      if (mp.role === 'guest' && !mp.active) mpStartRace(m.seed, m.level);
+      break;
+    case 'state': {
+      const now = performance.now();
+      const cur = mp.opp ? mpOppPose(now) : { x: m.x, y: m.y, z: m.z };
+      mp.opp = { from: cur, to: { x: m.x, y: m.y, z: m.z }, t0: now, dir: m.dir, vis: m.vis, row: m.row };
+      break;
+    }
+    case 'win':
+      if (mp.active && !mp.finished) mpFinish(false);
+      break;
+    case 'bye':
+      mpDisconnected('对手离开了房间');
+      break;
+    default:
+      break;   // hello：房主在连接打开时已经开局，无需处理
+  }
+}
+
+function mpStartRace(seed, level) {
+  mp.active = true; mp.seed = seed; mp.finished = false; mp.levelTime = 0; mp.opp = null; mp.sendAcc = 0;
+  mp.lastRecv = performance.now();
+  lives = CONFIG.lives; score = 0; levelIdx = clamp(level, 0, CONFIG.levels.length - 1);
+  startLevel();                                   // buildLevel 会使用 mp.seed
+  $('mpBadge').innerHTML = `<i></i>联机竞速 · 房间 ${mp.code} · 粉色是对手`;
+  $('mpBadge').classList.remove('mpHide');
+  setTimeout(() => { if (mp.active && !mp.finished) toast('先到对岸者获胜', 'Race', 1800); }, 1900);
+}
+
+function mpFinish(won) {
+  if (mp.finished) return;
+  mp.finished = true;
+  if (won) {
+    mpSend('win', { time: mp.levelTime });
+    state = 'clear'; stateTimer = 0;
+    spray(sheep.x, 0.3, sheep.z, 40, 0xffd9a0, { additive: true, up: [0.4, 1.4], spread: 1.2, gravity: -0.6, life: [1.2, 2.2], size: [0.02, 0.04] });
+    sfx.chime();
+  } else {
+    state = 'over'; queued = false;
+    sfx.fail();
+  }
+  setTimeout(() => {
+    showOverlay(`<div class="eyebrow">${won ? 'You win' : 'You lose'}</div><h1 data-testid="mp-result">${won ? '你赢了' : '对手赢了'}</h1><div class="divider"></div>
+      <p class="sub">${won ? '你的小羊先到了对岸！' : '对手的小羊先到了对岸。'}</p>`, '返回菜单', () => { mpCleanup(); showMenu(); });
+  }, won ? 1200 : 400);
+}
+
+// 断线：比赛中 → 提示并继续单人；等待中 → 在菜单显示错误；已出结果 → 静默清理
+function mpDisconnected(text) {
+  const racing = mp.active && !mp.finished, finished = mp.finished;
+  mpCleanup();
+  if (racing) { toast(text, '已切换为单人模式', 2600); updateHUD(); }
+  else if (!finished) mpStatus(text, true);
+}
+
+function mpOppPose(now) {
+  const o = mp.opp;
+  return window.MP.interpolatePose(o.from, o.to, (now - o.t0) / 1000 / SEND_INTERVAL);
+}
+function updateMultiplayer(dt, now) {
+  if (!mp.active) return;
+  if (state === 'playing') mp.levelTime += dt;
+  // 发送自己的位置
+  mp.sendAcc += dt;
+  if (mp.sendAcc >= SEND_INTERVAL) {
+    mp.sendAcc = 0;
+    mpSend('state', { x: sheep.x, y: sheep.y, z: sheep.z, dir: sheep.dir, vis: sheepObj.root.visible, row: Math.max(0, sheep.row | 0) });
+  }
+  // 心跳：太久没收到消息就算掉线
+  if (now - mp.lastRecv > PEER_TIMEOUT_MS) { mpDisconnected('对手掉线了'); return; }
+  // 渲染对手
+  const o = mp.opp;
+  if (!o) { oppObj.root.visible = false; oppShadow.visible = false; return; }
+  const p = mpOppPose(now);
+  const R = oppObj.root;
+  R.visible = o.vis; oppShadow.visible = o.vis;
+  R.position.set(p.x, p.y, p.z);
+  const cur = R.rotation.y;
+  const diff = ((ANGLE[o.dir] - cur + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
+  R.rotation.y = cur + diff * Math.min(1, dt * 14);
+  const rowUnder = rows[clamp(Math.round(-p.z), 0, goalRow)];
+  const surf = rowUnder && rowUnder.type === 'land' ? 0.006 : WATER_Y + 0.06;
+  oppShadow.position.set(p.x, surf, p.z);
+  oppShadow.scale.set(0.75, 1, 0.95);
+}
 
 /* ---------- 主循环 ---------- */
 let last = performance.now(), hudTick = 0;
@@ -1080,6 +1357,7 @@ function loop(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now; elapsed += dt;
   updateWorld(dt);
   updateSheep(dt);
+  try { updateMultiplayer(dt, now); } catch (e) { console.error('[联机] 更新失败，切回单人', e); mpDisconnected('联机出错，已切换为单人模式'); }
   updateEffects(dt);
   updateCamera(dt);
   if (state === 'playing' && (hudTick += dt) > 0.25) { hudTick = 0; updateHUD(); }
@@ -1092,7 +1370,10 @@ resize();
 buildLevel(0);
 lives = CONFIG.lives; timeLeft = CONFIG.levels[0].timeLimit; updateHUD();
 setTimeout(() => { $('hint').style.opacity = '0'; }, 12000);
-showOverlay(`
+// 开始菜单：单人开始 + 双人联机（创建 / 加入房间）
+function showMenu() {
+  state = 'menu';
+  $('sheet').innerHTML = `
   <div class="eyebrow">A river crossing game</div>
   <h1>小羊过河</h1>
   <div class="divider"></div>
@@ -1102,8 +1383,26 @@ showOverlay(`
     <span class="deskOnly"><kbd>Space</kbd> 跳跃</span>
     <span class="touchOnly">滑动 / 方向键 转向</span>
     <span class="touchOnly">轻点画面 / 跳 按钮 跳跃</span>
-  </div>`,
-  '开始', startGame);
+  </div>
+  <button class="primary" id="ovBtn" data-testid="single-start">开始</button>
+  <div class="mp">
+    <div class="eyebrow">双人联机 · 同一 WiFi 竞速</div>
+    <div class="mpRow"><button class="ghost" id="mpHostBtn" data-testid="mp-create-room">创建房间</button></div>
+    <div id="mpRoom" class="mpRoom mpHide">把房间码告诉朋友<b id="mpRoomCode" data-testid="mp-room-code"></b></div>
+    <div class="mpRow">
+      <input id="mpCodeInput" data-testid="mp-room-input" maxlength="4" placeholder="房间码" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" inputmode="text">
+      <button class="ghost" id="mpJoinBtn" data-testid="mp-join-room">加入房间</button>
+    </div>
+    <button class="link mpHide" id="mpCancelBtn" data-testid="mp-cancel">取消联机</button>
+    <div id="mpStatus" class="mpStatus" data-testid="mp-status" role="status" aria-live="polite"></div>
+  </div>`;
+  $('overlay').classList.remove('hidden');
+  $('ovBtn').onclick = () => { $('ovBtn').blur(); sfx.click(); mpCleanup(); $('overlay').classList.add('hidden'); startGame(); };
+  $('mpHostBtn').onclick = () => { sfx.click(); mpHost(); };
+  $('mpJoinBtn').onclick = () => { sfx.click(); mpJoin(); };
+  $('mpCancelBtn').onclick = () => { sfx.click(); mpCleanup(); mpStatus('已取消联机'); };
+}
+showMenu();
 requestAnimationFrame(loop);
 </script>
 </body>
