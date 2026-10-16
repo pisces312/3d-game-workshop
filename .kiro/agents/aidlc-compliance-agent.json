@@ -1,0 +1,121 @@
+{
+  "name": "aidlc-compliance-agent",
+  "description": "AI-DLC Compliance Agent - delegation target for ensemble stages (regulatory, data-residency, audit perspective).",
+  "prompt": "file://aidlc-compliance-agent.md",
+  "includeMcpJson": true,
+  "tools": [
+    "fs_read",
+    "fs_write",
+    "execute_bash",
+    "thinking",
+    "@context7",
+    "@aws-mcp",
+    "@aws-pricing",
+    "@aws-iac",
+    "@aws-serverless"
+  ],
+  "allowedTools": [
+    "fs_read",
+    "thinking"
+  ],
+  "toolsSettings": {
+    "execute_bash": {
+      "allowedCommands": [
+        "aidlc engine .*",
+        "aidlc doctor",
+        "aidlc doctor --verbose",
+        "aidlc version",
+        "aidlc --doctor",
+        "aidlc --doctor --verbose",
+        "aidlc --version",
+        "aidlc status",
+        "aidlc --status",
+        "aidlc config --help",
+        "aidlc config --show",
+        "aidlc config --show --json",
+        "aidlc config models --show",
+        "aidlc config models --show --json",
+        "aidlc config models --help",
+        "aidlc config runtime --show",
+        "aidlc config runtime --show --json",
+        "aidlc config runtime --help",
+        "aidlc config providers --show",
+        "aidlc config providers --show --json",
+        "aidlc config providers --help",
+        "aidlc config trust --show",
+        "aidlc config trust --show --json",
+        "aidlc config trust --help",
+        "aidlc config flags --show",
+        "aidlc config flags --show --json",
+        "aidlc config flags --help",
+        "aidlc config project --show",
+        "aidlc config project --show --json",
+        "aidlc config project --help",
+        "aidlc config flags --clear-bypass AIDLC_SKIP_ARTIFACT_GUARD --yes",
+        "aidlc config flags --clear-bypass AIDLC_SKIP_REVISION_BACKSTOP --yes",
+        "aidlc config flags --clear-bypass AIDLC_SKIP_SUMMARY_CONFIRMATION_GUARD --yes",
+        "aidlc config flags --clear-bypass AIDLC_SKIP_HUMAN_PRESENCE_GUARD --yes",
+        "aidlc config flags --clear-bypass AIDLC_DISABLE_ENSEMBLE_EVIDENCE --yes",
+        "aidlc config flags --clear-bypass AIDLC_DISABLE_PLAN_APPROVAL_GUARD --yes",
+        "aidlc config flags --clear-bypass AIDLC_DISABLE_REVIEWER_SCOPE_HOOK --yes",
+        "aidlc config flags --clear-bypass AIDLC_DISABLE_REVIEW_FREEZE_HOOK --yes",
+        "aidlc config flags --clear-bypass AIDLC_DISABLE_USAGE_TRACKING --yes",
+        "aidlc config flags --clear-bypass AIDLC_DISABLE_SENSORS --yes",
+        "aidlc config flags --clear-bypass AIDLC_DISABLE_LEARNINGS --yes",
+        "aidlc config flags --clear-bypass AIDLC_DISABLE_SUMMARY_CONFIRMATION --yes"
+      ],
+      "deniedCommands": [
+        "([^\\s]*/)?rm( [^\\s]+)* -[A-Za-z]*[rR][A-Za-z]*( .*)?",
+        "([^\\s]*/)?rm( [^\\s]+)* --recursive( .*)?",
+        "([^\\s]*/)?git( -[^\\s]+( (\"[^\"]*\"|'[^']*'|[^\\s]+))?)* push( .*)?"
+      ]
+    },
+    "fs_write": {
+      "allowedPaths": [
+        "aidlc/spaces/**"
+      ]
+    }
+  },
+  "resources": [
+    "file://.kiro/agents/aidlc-compliance-agent.md",
+    "file://.kiro/knowledge/aidlc-compliance-agent/*.md",
+    "file://.kiro/knowledge/aidlc-shared/*.md",
+    "file://aidlc/spaces/default/memory/**/*.md"
+  ],
+  "hooks": {
+    "preToolUse": [
+      {
+        "matcher": "execute_bash",
+        "command": "aidlc engine adapter kiro state-transition-guard aidlc-compliance-agent",
+        "timeout_ms": 1800000
+      },
+      {
+        "matcher": "fs_write",
+        "command": "aidlc engine adapter kiro review-freeze",
+        "timeout_ms": 1800000
+      },
+      {
+        "matcher": "execute_bash",
+        "command": "aidlc engine adapter kiro review-freeze",
+        "timeout_ms": 1800000
+      },
+      {
+        "matcher": "fs_write",
+        "command": "aidlc engine adapter kiro plan-approval-guard",
+        "timeout_ms": 1800000
+      },
+      {
+        "matcher": "execute_bash",
+        "command": "aidlc engine adapter kiro plan-approval-guard",
+        "timeout_ms": 1800000
+      }
+    ],
+    "postToolUse": [
+      {
+        "matcher": "fs_write",
+        "command": "aidlc engine adapter kiro audit-and-sensors",
+        "timeout_ms": 3600000
+      }
+    ]
+  }
+}
